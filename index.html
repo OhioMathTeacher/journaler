@@ -1564,6 +1564,23 @@ function orderByReadingColumns(items, pageWidth) {
     .map(o => o.it);
 }
 
+// Some PDFs (often OCR'd scans, e.g. older JSTOR articles) embed the same text
+// two or three times at identical positions. That makes selection and marquee-
+// capture repeat every word ("AT AT AT SOME SOME SOME"). Drop exact same-string,
+// same-position duplicates before the text layer is built.
+function dedupeTextItems(items) {
+  const seen = new Set(); const out = [];
+  for (const it of items) {
+    const s = it.str || '';
+    if (!s.trim()) { out.push(it); continue; } // keep whitespace/EOL items for spacing
+    const tr = it.transform || [];
+    const key = s + '@' + Math.round(tr[4] || 0) + ',' + Math.round(tr[5] || 0);
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(it);
+  }
+  return out;
+}
+
 async function renderPdf() {
   const doc = pdfDoc;
   if (!doc) return;
@@ -1609,7 +1626,8 @@ async function renderPdf() {
     if (token !== pdfRenderToken) return;
     try {
       const tc = await page.getTextContent();
-      try { tc.items = orderByReadingColumns(tc.items, unit.width); } catch (e2) { console.warn('column order', e2); }
+      try { tc.items = orderByReadingColumns(dedupeTextItems(tc.items), unit.width); } catch (e2) { console.warn('column order', e2); }
+      tlDiv.textContent = ''; // never stack a second text layer into the same div
       const tl = new pdfjsLib.TextLayer({ textContentSource: tc, container: tlDiv, viewport });
       await tl.render();
     } catch (e) { console.warn('text layer page ' + n, e); }
@@ -1676,8 +1694,16 @@ function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
     if (ix * iy >= 0.35 * (r.width * r.height)) hits.push({ sp, top: r.top, left: r.left });
   });
   hits.sort((a, b) => (Math.abs(a.top - b.top) > 4 ? a.top - b.top : a.left - b.left));
+  // Drop exact overlapping duplicates (some scans embed text 2-3x at one spot).
+  const uniq = [];
+  for (const h of hits) {
+    const prev = uniq[uniq.length - 1];
+    if (prev && (h.sp.textContent || '') === (prev.sp.textContent || '')
+        && Math.abs(h.top - prev.top) < 2 && Math.abs(h.left - prev.left) < 2) continue;
+    uniq.push(h);
+  }
   let text = '', lastTop = null;
-  hits.forEach(h => {
+  uniq.forEach(h => {
     const piece = h.sp.textContent || '';
     if (lastTop !== null && Math.abs(h.top - lastTop) > 4) text += '\n';
     else if (text && !text.endsWith('\n')) text += ' ';
@@ -2496,7 +2522,7 @@ function renderReadingPicker() {
   const curId = currentReadingId();
   const items = Object.keys(titles).filter(id => id && id.indexOf('custom:') === 0).map(id => {
     const cur = id === curId ? ' current' : '';
-    return `<button type="button" class="fm-article${cur}" role="option" onclick="switchToReading('${encodeURIComponent(id)}')">${escHtml(titles[id])}</button>`;
+    return `<button type="button" class="fm-article${cur}" role="option" onclick="switchToReading('${encodeURIComponent(id).replace(/'/g, '%27')}')">${escHtml(titles[id])}</button>`;
   }).join('');
   menu.innerHTML =
     (items ? `<div class="fm-section-label">Your articles</div>${items}` : `<div class="fm-empty">No articles opened yet.</div>`) +
