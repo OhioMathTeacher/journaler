@@ -996,6 +996,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
 .nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
 .nb-hl-note{font-size:.78rem;color:#7a6a4a;margin-top:.25rem;font-style:italic}
+.nb-hl-src{font-size:.68rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a7a3a;margin-bottom:.2rem}
 .nb-chat-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.7rem;padding:.4rem .2rem}
 .nb-msg{display:flex;flex-direction:column;gap:.2rem;max-width:92%}
 .nb-msg.from-you{align-self:flex-end;align-items:flex-end}
@@ -3168,30 +3169,67 @@ function renderPromptPicker() {
 function loadChatFocus() { return localStorage.getItem('cr_chatfocus') === 'exploratory' ? 'exploratory' : 'focused'; }
 function setChatFocus(f) { localStorage.setItem('cr_chatfocus', f === 'exploratory' ? 'exploratory' : 'focused'); renderNbChat(); }
 
-function currentHighlights() { return comments.filter(c => c.passage || c.comment); }
+// A journal ENTRY groups by WEEK when a week is set — so the two-reading weeks (Wk2
+// Reinhart+Switzer, Wk3 Newell+van Hiele) pool into ONE entry — else by the single reading.
+function journalGroupId() { const w = loadPromptWeek(); return w ? ('week:' + w) : currentReadingId(); }
+function journalGroupTitle() {
+  const w = loadPromptWeek();
+  if (w) { const p = WEEK_PROMPTS.find(x => x.id === w); return p ? p.label : ('Week ' + w.replace('wk', '')); }
+  return currentReadingTitle();
+}
+// Every reading tagged (auto-detected or hand-picked) to this week — so highlights pool across them.
+function weekReadingIds(weekId) {
+  const ids = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('cr_promptweek_') && !k.startsWith('cr_promptweek_manual_') && localStorage.getItem(k) === weekId) {
+      ids.push(k.slice('cr_promptweek_'.length));
+    }
+  }
+  return ids;
+}
+// Highlights for the notebook/chat: pooled across the week's readings when a week is set
+// (current reading from live memory, the others from their saved notes), else just this reading.
+function currentHighlights() {
+  const weekId = loadPromptWeek();
+  if (!weekId) return comments.filter(c => c.passage || c.comment);
+  const curId = currentReadingId();
+  const ids = weekReadingIds(weekId);
+  if (!ids.includes(curId)) ids.push(curId);
+  const out = [];
+  ids.forEach(rid => {
+    const title = (rid === curId) ? currentReadingTitle() : readingTitleFor(rid);
+    let arr;
+    if (rid === curId) arr = comments;
+    else { try { arr = JSON.parse(localStorage.getItem('cr_margin_notes_' + rid)) || []; } catch { arr = []; } }
+    (arr || []).filter(c => c.passage || c.comment).forEach(c => out.push({ ...c, _reading: title }));
+  });
+  return out;
+}
 function getChatEntry(rid) {
-  rid = rid || currentReadingId();
+  rid = rid || journalGroupId();
   return loadJournal().find(e => e.readingId === rid && e.kind === 'chat') || null;
 }
 function upsertChat(messages, themes) {
   const journal = loadJournal();
-  const rid = currentReadingId();
+  const rid = journalGroupId();
   let e = journal.find(x => x.readingId === rid && x.kind === 'chat');
   const now = Date.now();
   if (!e) {
     e = { id: 'e' + now + Math.round(Math.random() * 1e4), ts: now, kind: 'chat',
-          readingId: rid, readingTitle: currentReadingTitle(), messages: [], themes: [] };
+          readingId: rid, readingTitle: journalGroupTitle(), messages: [], themes: [] };
     journal.push(e);
   }
   e.messages = messages;
   if (themes) e.themes = themes;
-  e.readingTitle = currentReadingTitle();
+  e.readingTitle = journalGroupTitle();
   e.edited = now;
   saveJournal(journal);
 }
 function toddChatPrompt(messages, opening) {
   const hl = currentHighlights();
-  const hlText = hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — their note: ' + c.comment : ''}`).join('\n');
+  const multi = new Set(hl.map(c => c._reading).filter(Boolean)).size > 1;
+  const hlText = hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — their note: ' + c.comment : ''}${multi && c._reading ? ' [from ' + c._reading + ']' : ''}`).join('\n');
   const w = currentWeekPrompt();
   const promptText = w ? w.prompt : '(no prompt selected)';
   const focus = loadChatFocus();
@@ -3261,8 +3299,9 @@ async function sendToddMessage() {
 }
 function startOverToddChat() {
   if (!getChatEntry()) return;
-  if (!confirm('Start this conversation over? Your current entry for this reading will be cleared.')) return;
-  saveJournal(loadJournal().filter(e => !(e.readingId === currentReadingId() && e.kind === 'chat')));
+  if (!confirm('Start this conversation over? Your current entry for this week will be cleared.')) return;
+  const rid = journalGroupId();
+  saveJournal(loadJournal().filter(e => !(e.readingId === rid && e.kind === 'chat')));
   renderNbChat();
 }
 function renderNbChat(note) {
@@ -3274,8 +3313,9 @@ function renderNbChat(note) {
   const hlBox = document.getElementById('nbHlList');
   if (hlBox) {
     const hl = currentHighlights();
+    const multi = new Set(hl.map(c => c._reading).filter(Boolean)).size > 1; // 2-reading week → show source
     hlBox.innerHTML = hl.length
-      ? hl.map((c, i) => `<div class="nb-hl"><span class="nb-hl-n">${i + 1}</span><div class="nb-hl-body"><div class="nb-hl-passage">${escHtml(c.passage || '(a figure)')}</div>${c.comment ? `<div class="nb-hl-note">${escHtml(c.comment)}</div>` : ''}</div></div>`).join('')
+      ? hl.map((c, i) => `<div class="nb-hl"><span class="nb-hl-n">${i + 1}</span><div class="nb-hl-body">${multi && c._reading ? `<div class="nb-hl-src">${escHtml(c._reading)}</div>` : ''}<div class="nb-hl-passage">${escHtml(c.passage || '(a figure)')}</div>${c.comment ? `<div class="nb-hl-note">${escHtml(c.comment)}</div>` : ''}</div></div>`).join('')
       : '<div class="nb-empty">No highlights yet. In the reading, mark the passages that strike you (Box mode, or select text → Highlight). They gather here, and Todd builds the conversation from them.</div>';
   }
   // Chat pane.
