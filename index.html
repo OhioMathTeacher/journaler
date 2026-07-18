@@ -649,6 +649,12 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 }
 .load-btn:hover { border-color: var(--cave-glow); color: #DDD3C0; }
 .load-btn.has-custom { border-color: var(--cave-glow); color: var(--cave-glow); }
+/* Icon-only toolbar buttons: bigger glyph, square-ish hit area. */
+.load-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.32rem 0.62rem; }
+/* Save button glows amber when there are unsaved changes to download. */
+#saveJournalBtn.unsaved { border-color: #e0a92f; background: rgba(224,169,47,0.16); color: #f0d59a; font-weight: 600; }
+@keyframes saveNudge { 0%,100%{ box-shadow: 0 0 0 0 rgba(224,169,47,0); } 50%{ box-shadow: 0 0 0 3px rgba(224,169,47,0.28); } }
+#saveJournalBtn.unsaved { animation: saveNudge 2.4s ease-in-out 2; }
 
 /* ═══ LOAD TEXT MODAL ═══ */
 .load-modal-overlay {
@@ -740,13 +746,13 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <em>Select any text</em> to ask Socrates · open your <em>Notebook</em> to think on the page
       </div>
       <div style="display:flex;gap:0.5rem;align-items:center">
-        <button class="load-btn" id="loadBtn" onclick="openLoadModal()" data-i18n="loadText">Load Text</button>
         <button class="load-btn" id="captureModeBtn" onclick="toggleCaptureMode()" title="Box mode: drag a box on the page to capture a passage or a figure. Toggle to select text normally.">▭ Box</button>
         <button class="load-btn" id="zoomOutBtn" onclick="zoomPdf(-1)" title="Zoom out">A−</button>
         <button class="load-btn" id="zoomInBtn" onclick="zoomPdf(1)" title="Zoom in">A+</button>
         <button class="nb-btn" id="nbBtn" onclick="openNotebook()" title="Your private writer's notebook for this reading">
           <span>✎</span><span data-i18n="notebook">Notebook</span>
         </button>
+        <button class="load-btn icon-btn" id="saveJournalBtn" onclick="exportAll()" title="Save your work to a file — download it to your thumb drive, cloud, or email" aria-label="Save your work to a file">⤓</button>
         <button class="ai-btn" id="aiBtn" onclick="openAIModal()">
           <span class="ai-dot"></span><span id="aiBtnLabel">AI: Off</span>
         </button>
@@ -870,31 +876,24 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <button class="nb-tab" data-view="byreading" onclick="setNbView('byreading')" data-i18n="tabByReading">By reading</button>
     </div>
     <div class="nb-view" id="nbViewReading">
-      <div class="tic-block">
-        <textarea id="ticPrompt" class="tic-prompt" rows="2" placeholder="Tell me about this week's prompt. How are you planning to tackle it?" oninput="savePrompt(this.value)"></textarea>
-        <div class="tic-banner" id="ticBanner" style="display:none"></div>
-        <div class="tic-row">
-          <button class="tic-btn" id="ticBtn" onclick="askToddInACan()">✦ Ask Todd-in-a-Can about my highlights</button>
-          <span class="tic-hint">Pulls your highlights into the draft, then asks one question to answer below. Todd never reads the article.</span>
+      <div class="nb-prompt-picker">
+        <select id="nbPromptWeek" class="nb-pp-select" onchange="setPromptWeek(this.value)"></select>
+        <div class="nb-pp-text" id="nbPromptText" style="display:none"></div>
+      </div>
+      <div class="nb-chat-panes">
+        <div class="nb-pane nb-pane-highlights">
+          <div class="nb-pane-title">Your highlights</div>
+          <div class="nb-hl-list" id="nbHlList"></div>
         </div>
-      </div>
-      <div class="nb-mode-bar" role="tablist" aria-label="Notebook layout">
-        <button class="nb-mode" data-mode="write" onclick="setNbMode('write')" data-i18n="nbModeWrite">✎ Write</button>
-        <button class="nb-mode" data-mode="split" onclick="setNbMode('split')" data-i18n="nbModeSplit">⊞ Split</button>
-        <button class="nb-mode" data-mode="pages" onclick="setNbMode('pages')" data-i18n="nbModePages">📖 Pages</button>
-        <span class="nb-fw-info" tabindex="0">i<span class="nb-fw-tip" data-i18n-html="freewriteTipHtml">This is your <strong>freewrite</strong> — raw, private thinking, in the spirit of Peter Elbow. Keep your pen moving; nothing here is graded or shared. It saves itself automatically. When a page is worth keeping, hit <em>“Add freewrite to notebook”</em> to tear it off into a dated page below — which you can still re-open, edit, or delete anytime. It's your writing.</span></span>
-      </div>
-      <div class="nb-panes" id="nbPanes" data-mode="split">
-        <div class="nb-pane nb-pane-write">
-          <textarea class="nb-compose" id="nbCompose" spellcheck="false" oninput="saveDraft(this.value)" data-i18n-ph="nbPlaceholder" placeholder="Date it however you like, then write whatever you're making of this reading — half-formed is fine. Keep your pen moving; no one grades this. Take eight minutes if you want them. (Passages you send while reading land here too.)"></textarea>
-          <div class="nb-compose-row">
-            <span class="nb-hint" data-i18n="nbHint">Your freewrite is always saved — no need to save or cancel · “Add freewrite to notebook” keeps a dated page (still editable).</span>
-            <button class="nb-add" id="nbAddBtn" onclick="addNotebookEntry()" data-i18n="addFreewrite">Add freewrite to notebook</button>
+        <div class="nb-pane nb-pane-chat">
+          <div class="nb-pane-title">Todd-in-a-Can <span class="nb-chat-sub">· today's entry</span>
+            <span class="nb-focus" id="nbFocus" title="Focused = build toward answering the prompt · Exploratory = open, curious wandering"><button type="button" data-f="focused" onclick="setChatFocus('focused')">Focused</button><button type="button" data-f="exploratory" onclick="setChatFocus('exploratory')">Exploratory</button></span>
+            <button class="nb-startover" onclick="startOverToddChat()" title="Clear this conversation and start again">↺ Start over</button></div>
+          <div class="nb-chat-log" id="nbChatLog"></div>
+          <div class="nb-chat-input" id="nbChatInput" style="display:none">
+            <textarea id="nbChatText" rows="2" placeholder="Type your reply… (Enter to send · Shift+Enter for a new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendToddMessage()}"></textarea>
+            <button class="nb-send" onclick="sendToddMessage()">Send</button>
           </div>
-        </div>
-        <div class="nb-pane nb-pane-pages">
-          <div class="nb-pane-title" data-i18n="nbPagesTitle">Your pages</div>
-          <div class="nb-entries" id="nbEntries"></div>
         </div>
       </div>
     </div>
@@ -918,6 +917,9 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .welcome-steps li{margin:0 0 .6rem;font-size:.92rem;line-height:1.5}
   .welcome-note{font-size:.82rem;color:#7a7a6a;background:#f3f3ea;border-radius:8px;padding:.7rem .9rem;margin:0 0 1.3rem}
   .welcome-go{font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;background:#3a5a40;color:#fff;border:0;border-radius:8px;padding:.6rem 1.4rem;cursor:pointer}
+  .welcome-actions{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+  .welcome-secondary{font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;background:transparent;color:#3a5a40;border:1px solid #3a5a40;border-radius:8px;padding:.55rem 1.1rem;cursor:pointer}
+  .welcome-secondary:hover{background:#eef2ee}
   .welcome-card .nb-close-x{position:absolute;top:.9rem;right:1rem}
   .cr-blank{max-width:32rem;margin:4rem auto;text-align:center;color:#8a8a7a;font-family:'DM Sans',system-ui,sans-serif}
   .cr-blank p{margin:.4rem 0} .cr-blank-hint{font-size:.85rem;line-height:1.5}
@@ -968,10 +970,55 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <li><strong>Write your entry.</strong> Open your <em>Notebook</em> and write that week's dated journal entry, using the prompt on the Reading Homework sheet.</li>
       <li><strong>Turn it in.</strong> At the end of Act I, open the Notebook and choose <em>Print / PDF</em> to submit your whole journal as one file.</li>
     </ol>
-    <p class="welcome-note">Your reading and writing stay on this computer — nothing is uploaded. Reopen this guide anytime from the <strong>?</strong> next to the title.</p>
-    <button class="welcome-go" onclick="closeWelcome()">Start reading</button>
+    <p class="welcome-note"><strong>On a shared or public computer?</strong> This browser may forget your work when you log out. Keep your work in a file — thumb drive, cloud, or email: save it with the <strong>⤓</strong> button (top bar) as you go, and open it here each time. On your own device, your work is remembered automatically. Nothing is ever uploaded.</p>
+    <div class="welcome-actions">
+      <button class="welcome-go" onclick="closeWelcome()">Start reading</button>
+      <button class="welcome-secondary" onclick="closeWelcome();openJournalFile()">⤒ Continue — open my saved file</button>
+    </div>
   </div>
 </div>
+
+<style>
+/* Notebook chat redesign: highlights (reference) beside a Todd-in-a-Can chat that IS the entry. */
+.nb-chat-panes{display:flex;gap:1.1rem;flex:1;min-height:0;margin-top:.7rem}
+.nb-pane-highlights{flex:0 0 33%;max-width:33%;min-height:0}
+.nb-pane-chat{flex:1;min-width:0;min-height:0}
+@media(max-width:699px){.nb-chat-panes{flex-direction:column}.nb-pane-highlights{flex:0 0 auto;max-width:none;max-height:30vh}}
+.nb-hl-list{overflow:auto;flex:1;display:flex;flex-direction:column;gap:.5rem;padding-right:.3rem}
+.nb-hl{display:flex;gap:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-radius:8px;padding:.5rem .6rem}
+.nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
+.nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
+.nb-hl-note{font-size:.78rem;color:#7a6a4a;margin-top:.25rem;font-style:italic}
+.nb-chat-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.7rem;padding:.4rem .2rem}
+.nb-msg{display:flex;flex-direction:column;gap:.2rem;max-width:92%}
+.nb-msg.from-you{align-self:flex-end;align-items:flex-end}
+.nb-msg-who{font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#9a8a5a}
+.nb-msg-text{font-size:.9rem;line-height:1.5;padding:.55rem .8rem;border-radius:12px;white-space:pre-wrap}
+.nb-msg.from-todd .nb-msg-text{background:#eef1ea;color:#2a3226;border:1px solid #dde3d6}
+.nb-msg.from-you .nb-msg-text{background:#3a5a40;color:#fff}
+.nb-typing{opacity:.65;font-style:italic}
+.nb-chat-input{display:flex;gap:.5rem;align-items:flex-end;margin-top:.5rem}
+.nb-chat-input textarea{flex:1;resize:vertical;min-height:2.6rem;font-family:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #d8d3c2;border-radius:8px}
+.nb-send{background:#3a5a40;color:#fff;border:0;border-radius:8px;padding:.55rem 1.2rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.nb-send:disabled{opacity:.5;cursor:default}
+.nb-chat-start{text-align:center;color:#7a7365;max-width:32rem;margin:1.4rem auto;font-size:.9rem}
+.nb-chat-start p{margin-bottom:1rem;line-height:1.5}
+.nb-chat-note{color:#8a7a3a;font-size:.88rem;text-align:center;margin:1.2rem auto;max-width:30rem;line-height:1.5}
+.nb-startover{margin-left:auto;background:none;border:0;color:#9a8a5a;font-size:.72rem;cursor:pointer;font-family:'DM Sans',sans-serif}
+.nb-startover:hover{color:#b23;text-decoration:underline}
+.nb-pane-chat .nb-pane-title{display:flex;align-items:center;gap:.4rem}
+.nb-chat-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
+.nb-prompt-picker{margin-top:.6rem}
+.nb-pp-select{width:100%;font-family:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #d8d3c2;border-radius:8px;background:#fff;color:#2a2a24}
+.nb-pp-text{margin-top:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-left:3px solid #8a7a3a;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;line-height:1.5;color:#3a352a}
+.nb-focus{display:inline-flex;border:1px solid #d8d3c2;border-radius:20px;overflow:hidden}
+.nb-focus button{background:none;border:0;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;letter-spacing:0;text-transform:none;padding:.22rem .7rem;cursor:pointer;color:#8a8474}
+.nb-focus button.active{background:#3a5a40;color:#fff}
+/* Chat entries rendered as transcripts in Calendar / By-reading */
+.nb-transcript{display:flex;flex-direction:column;gap:.4rem;margin:.3rem 0}
+.nb-tx-turn{font-size:.85rem;line-height:1.45}
+.nb-tx-who{font-weight:700;color:#8a7a3a;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;margin-right:.35rem}
+</style>
 
 <div class="selection-popup" id="capturePopup" style="display:none">
   <img id="captureThumb" alt="captured region" style="display:none;max-width:100%;max-height:130px;border-radius:4px;margin-bottom:.5rem;border:1px solid rgba(0,0,0,.15)">
@@ -1018,7 +1065,6 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <button class="popup-chip" onclick="askAboutSelection('Explain this passage in plain language.')" data-i18n="explainSimply">Explain simply</button>
     <button class="popup-chip" onclick="askAboutSelection('Take me deeper into this passage.')" data-i18n="goDeeper">Go deeper</button>
     <button class="popup-chip" onclick="askAboutSelection('Give a concrete example that illuminates this passage.')" data-i18n="giveExample">Give an example</button>
-    <button class="popup-chip nb" onclick="sendSelectionToNotebook()" data-i18n="toFreewrite">→ Freewrite</button>
   </div>
   <div class="popup-actions">
     <button class="popup-btn secondary" onclick="closePopup()" data-i18n="cancel">Cancel</button>
@@ -1366,8 +1412,7 @@ function loadFromPaste() {
 
   const shortTitle = title.length > 22 ? title.substring(0, 22) + '…' : title;
   const btn = document.getElementById('loadBtn');
-  btn.classList.add('has-custom');
-  btn.textContent = '✓ ' + shortTitle;
+  if (btn) { btn.classList.add('has-custom'); btn.textContent = '✓ ' + shortTitle; }
   document.getElementById('langToggles').style.display = 'none';
   renderText();
   loadNotesForActiveReading();
@@ -1379,8 +1424,7 @@ function clearCustomText() {
   pendingImport = null;
   closeLoadModal();
   const btn = document.getElementById('loadBtn');
-  btn.classList.remove('has-custom');
-  btn.textContent = 'Open article';
+  if (btn) { btn.classList.remove('has-custom'); btn.textContent = 'Open article'; }
   document.getElementById('langToggles').style.display = '';
   currentLang = 'en';
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === 'en'));
@@ -1420,6 +1464,47 @@ async function loadPdfBytes(id) {
       r.onerror = () => rej(r.error);
     });
   } catch (e) { console.warn('loadPdfBytes', e); return null; }
+}
+
+// One-time recovery: earlier builds cached PDFs in a store named 'marginalia_pdfs'
+// (before the app was renamed Journaler). Copy any bytes from there into the
+// current store so articles opened before the rename still reopen — no re-upload.
+let _pdfMigration = null;
+function migratePdfStoreOnce() {
+  if (_pdfMigration) return _pdfMigration;
+  _pdfMigration = (async () => {
+    if (localStorage.getItem('cr_pdf_store_migrated')) return;
+    try {
+      let exists = true;
+      if (indexedDB.databases) {
+        const dbs = await indexedDB.databases();
+        exists = dbs.some(d => d.name === 'marginalia_pdfs');
+      }
+      if (exists) {
+        const old = await new Promise((res, rej) => {
+          const rq = indexedDB.open('marginalia_pdfs');
+          rq.onsuccess = () => res(rq.result);
+          rq.onerror = () => rej(rq.error);
+          rq.onupgradeneeded = () => {}; // don't create anything if it's absent
+        });
+        if (old.objectStoreNames.contains('pdfs')) {
+          const pairs = await new Promise((res, rej) => {
+            const tx = old.transaction('pdfs', 'readonly');
+            const st = tx.objectStore('pdfs');
+            const kq = st.getAllKeys(), vq = st.getAll();
+            tx.oncomplete = () => res(kq.result.map((k, i) => [k, vq.result[i]]));
+            tx.onerror = () => rej(tx.error);
+          });
+          let n = 0;
+          for (const [k, v] of pairs) { if (v) { await savePdfBytes(k, v); n++; } }
+          if (n) console.info('Recovered ' + n + ' cached PDF(s) from the pre-rename store.');
+        }
+        old.close();
+      }
+    } catch (e) { console.warn('migratePdfStoreOnce', e); }
+    localStorage.setItem('cr_pdf_store_migrated', '1');
+  })();
+  return _pdfMigration;
 }
 
 // ── PDF reader: render the actual pages (canvas + selectable text layer) so
@@ -1925,6 +2010,7 @@ function notesKey() { return 'cr_margin_notes_' + currentReadingId(); }
 
 function saveNotesToStorage() {
   localStorage.setItem(notesKey(), JSON.stringify(comments));
+  markDirty();
 }
 
 function loadNotesFromStorage() {
@@ -2319,7 +2405,7 @@ function renderText() {
     if (customText.isPdf) {
       if (pdfDoc) { renderPdf(); }
       else {
-        textCol.innerHTML = '<div class="cr-blank"><p>Your highlights and journal for <strong>' + escHtml(customText.title || 'this article') + '</strong> are loaded.</p><button class="cr-blank-btn" onclick="openLoadModal()">Re-open the PDF to read it…</button><p class="cr-blank-hint">The PDF itself is not stored (it stays on your computer). Your marks and writing are saved.</p></div>';
+        textCol.innerHTML = '<div class="cr-blank"><p>Your highlights and journal for <strong>' + escHtml(customText.title || 'this article') + '</strong> are loaded.</p><button class="cr-blank-btn" onclick="openLoadModal()">Re-open the PDF…</button><p class="cr-blank-hint">This browser doesn\'t have this PDF saved yet. Re-open the file once and it\'ll be remembered here — you won\'t need to find it again.</p></div>';
       }
       return;
     }
@@ -2335,7 +2421,7 @@ function renderText() {
   // ── No article open yet (bring-your-own-PDF empty state) ──
   const reading = READINGS[currentReadingSlug];
   if (!reading) {
-    textCol.innerHTML = '<div class="cr-blank"><p>No article open yet.</p><button class="cr-blank-btn" onclick="openLoadModal()">Open article…</button><p class="cr-blank-hint">Download the reading from the JSTOR link on your Reading Homework sheet, then open the PDF here to read and annotate.</p></div>';
+    textCol.innerHTML = '<div class="cr-blank"><p>No article open yet.</p><button class="cr-blank-btn" onclick="openLoadModal()">Open article…</button><p class="cr-blank-hint">Download the reading from the JSTOR link on your Reading Homework sheet, then open the PDF here to read and annotate.</p><p class="cr-blank-hint" style="margin-top:.5rem">Been here before on another computer? <a href="#" onclick="event.preventDefault();openJournalFile()" style="color:#3a5a40;font-weight:600;text-decoration:underline">Open your saved file</a> to pick up where you left off.</p></div>';
     const sub = document.getElementById('headerSubtitle'); if (sub) sub.textContent = 'Read closely · think in the margins · keep your journal';
     return;
   }
@@ -2415,9 +2501,9 @@ function renderReadingPicker() {
   menu.innerHTML =
     (items ? `<div class="fm-section-label">Your articles</div>${items}` : `<div class="fm-empty">No articles opened yet.</div>`) +
     `<div class="fm-sep"></div>` +
-    `<button type="button" class="fm-action" onclick="closeReadingMenu();openLoadModal()">＋ Load new article…</button>` +
-    `<button type="button" class="fm-action" onclick="closeReadingMenu();exportAll()">↓ Export entries &amp; articles (JSON)</button>` +
-    `<button type="button" class="fm-action" onclick="closeReadingMenu();document.getElementById('importAllInput').click()">↑ Import from JSON…</button>` +
+    `<button type="button" class="fm-action" onclick="closeReadingMenu();openLoadModal()">＋ Open a new article…</button>` +
+    `<button type="button" class="fm-action" onclick="closeReadingMenu();exportAll()">⤓ Save my work to a file</button>` +
+    `<button type="button" class="fm-action" onclick="openJournalFile()">⤒ Open my saved file…</button>` +
     `<div class="fm-sep"></div>` +
     `<button type="button" class="fm-action" onclick="closeReadingMenu();openWelcome()">？ How to use Journaler</button>`;
 }
@@ -2439,15 +2525,43 @@ async function switchToReading(encId) {
   if (btn) { btn.classList.add('has-custom'); btn.textContent = '\u2713 ' + truncate(title, 22); }
   textCol.innerHTML = '<div class="pdf-loading">Opening ' + escHtml(title) + '…</div>';
   loadNotesForActiveReading();
+  await migratePdfStoreOnce(); // recover any PDFs cached under the old (pre-rename) store
   const bytes = await loadPdfBytes(id);
   if (id !== currentReadingId()) return; // user switched again while loading
   if (bytes) {
-    try { pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise; } catch (e) { pdfDoc = null; }
+    try { pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise; } catch (e) { pdfDoc = null; console.warn('render cached pdf failed', e); }
   }
   renderText();
 }
 
 // Full backup: every cr_* item EXCEPT API keys, as one JSON file.
+// ═══════════════════════════════════
+// TAKE IT WITH YOU — your work lives in a FILE, not just this browser.
+// A shared/public computer (or one that clears site data on logout) forgets
+// everything when you leave. So keep your journal in a file — thumb drive,
+// cloud, or email — save it as you go, and open it next time.
+// ═══════════════════════════════════
+let workDirty = false;
+function markDirty() { if (!workDirty) { workDirty = true; updateSaveBtn(); } }
+function updateSaveBtn() {
+  const b = document.getElementById('saveJournalBtn');
+  if (!b) return;
+  b.classList.toggle('unsaved', workDirty);
+  b.title = workDirty
+    ? 'Unsaved changes — save your work to a file to keep them'
+    : 'Save your work to a file (download)';
+}
+// Any of the student's own work stored right now? (greets a returning reader
+// who booted into an empty/wiped browser.)
+function hasSavedWork() {
+  try {
+    if ((JSON.parse(localStorage.getItem(JOURNAL_KEY)) || []).length) return true;
+    if (Object.keys(JSON.parse(localStorage.getItem('cr_reading_titles')) || {}).length) return true;
+  } catch {}
+  return false;
+}
+function openJournalFile() { closeReadingMenu(); document.getElementById('importAllInput').click(); }
+
 function exportAll() {
   const SKIP = ['cr_anthropic_key', 'cr_gemini_key', 'cr_groq_key', 'cr_custom_key'];
   const data = {};
@@ -2461,6 +2575,7 @@ function exportAll() {
   a.download = 'journaler-journal-backup.json';
   a.click();
   URL.revokeObjectURL(a.href);
+  workDirty = false; updateSaveBtn();
 }
 function importAll(event) {
   const file = event.target.files && event.target.files[0];
@@ -2875,7 +2990,7 @@ function nbKey() { return 'cr_notebook_' + currentReadingId(); }
 // student's writing; the app never freezes or locks it.
 const JOURNAL_KEY = 'cr_journal';
 function loadJournal() { try { return JSON.parse(localStorage.getItem(JOURNAL_KEY)) || []; } catch { return []; } }
-function saveJournal(list) { localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); }
+function saveJournal(list) { localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); markDirty(); }
 
 // Remember each reading's human title so cross-reading views can label entries
 // whose readingId is just a slug.
@@ -2937,7 +3052,7 @@ function dayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + d.g
 // "Add freewrite to notebook" tears it off as a saved entry.
 function draftKey() { return 'cr_nbdraft_' + currentReadingId(); }
 function loadDraft() { return localStorage.getItem(draftKey()) || ''; }
-function saveDraft(text) { localStorage.setItem(draftKey(), text || ''); updateNotebookBtn(); }
+function saveDraft(text) { localStorage.setItem(draftKey(), text || ''); updateNotebookBtn(); markDirty(); }
 
 // This week's prompt, kept per reading (pasted from the Reading Homework sheet).
 function promptKey() { return 'cr_prompt_' + currentReadingId(); }
@@ -3020,31 +3135,189 @@ function updateNotebookBtn() {
   if (btn) btn.classList.toggle('has-entries', loadNotebook().length > 0 || !!loadDraft().trim());
 }
 
+// ═══════════════════════════════════
+// TODD-IN-A-CAN CONVERSATION — the student talks through their highlights with
+// Todd, who names 2-3 themes and works them one at a time. The transcript IS the
+// dated entry for this reading: one evolving entry, auto-saved every turn.
+// ═══════════════════════════════════
+// The five Act I weekly Reading-Journal prompts, baked in so Todd can anchor the
+// conversation to the actual question of the week (source: the Reading Homework sheets).
+const WEEK_PROMPTS = [
+  { id: 'wk1', label: 'Week 1 · Learner — Engagement (McFeetors & Palfy)',
+    prompt: `Engagement. How do games engage students in mathematics — and what instructional aims do we have to protect when we use them? Where does the mathematical thinking live in a game, and where can a game drift into play that isn't doing mathematical work? Draw on McFeetors and Palfy, and on what you noticed playing Tuesday, as your evidence.` },
+  { id: 'wk2', label: 'Week 2 · Listener → Questioner — Listening & student talk (Reinhart; Switzer)',
+    prompt: `Listening and student talk. What does it take for students to do the explaining and the teacher the listening — and what gets lost when they don't? Reinhart concluded that his students "would have to do the explaining, and I, the listening." Draw on Reinhart, and on our Hundred Chart Challenge, as your evidence — cite specific moments you remember.` },
+  { id: 'wk3', label: 'Week 3 · Poser — Meeting learners where they are (Newell & Orton; van Hiele)',
+    prompt: `Meeting learners where they are. How can one task or routine invite children at different levels of thinking into the same conversation — without pushing a child past where she is, or holding her back? Van Hiele describes levels of geometric thinking; Newell and Orton offer routines built to hold many at once. Pick one routine and one grade level and make it concrete, drawing on the routine you ran Tuesday as your evidence.` },
+  { id: 'wk4', label: 'Week 4 · Planner — Rigor & justification (Edwards et al.; Simpson et al.)',
+    prompt: `Rigor and justification. What turns doing a mathematics task into having to justify it — and how do we raise a task's demand without leaving learners behind? Edwards uses pentominoes to provoke argument, not just measurement; Simpson gives a way to lift a task to a deeper level. Draw on both, and on the pentomino work you did Tuesday, as your evidence.` },
+  { id: 'wk5', label: 'Week 5 · Assessor — Assessment for learning (McGatha & Darcy)',
+    prompt: `Assessment for learning. What does an assessment make visible, what does it hide, and how do we use it for a learner, not just about them? McGatha sorts rubrics by what they reveal and how they weight it. Draw on McGatha, and on the rubrics you scored Tuesday, as your evidence — and connect it to the child you begin profiling Thursday.` }
+];
+function promptWeekKey() { return 'cr_promptweek_' + currentReadingId(); }
+function loadPromptWeek() { return localStorage.getItem(promptWeekKey()) || ''; }
+function currentWeekPrompt() { return WEEK_PROMPTS.find(p => p.id === loadPromptWeek()) || null; }
+function setPromptWeek(id) {
+  localStorage.setItem(promptWeekKey(), id || '');
+  renderPromptPicker();
+  renderNbChat();
+}
+function renderPromptPicker() {
+  const sel = document.getElementById('nbPromptWeek');
+  if (sel) {
+    const cur = loadPromptWeek();
+    sel.innerHTML = '<option value="">Choose this week\'s reading prompt…</option>' +
+      WEEK_PROMPTS.map(p => `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${escHtml(p.label)}</option>`).join('');
+  }
+  const box = document.getElementById('nbPromptText');
+  if (box) {
+    const w = currentWeekPrompt();
+    box.innerHTML = w ? escHtml(w.prompt).replace(/\n/g, '<br>') : '';
+    box.style.display = w ? 'block' : 'none';
+  }
+}
+function loadChatFocus() { return localStorage.getItem('cr_chatfocus') === 'exploratory' ? 'exploratory' : 'focused'; }
+function setChatFocus(f) { localStorage.setItem('cr_chatfocus', f === 'exploratory' ? 'exploratory' : 'focused'); renderNbChat(); }
+
+function currentHighlights() { return comments.filter(c => c.passage || c.comment); }
+function getChatEntry(rid) {
+  rid = rid || currentReadingId();
+  return loadJournal().find(e => e.readingId === rid && e.kind === 'chat') || null;
+}
+function upsertChat(messages, themes) {
+  const journal = loadJournal();
+  const rid = currentReadingId();
+  let e = journal.find(x => x.readingId === rid && x.kind === 'chat');
+  const now = Date.now();
+  if (!e) {
+    e = { id: 'e' + now + Math.round(Math.random() * 1e4), ts: now, kind: 'chat',
+          readingId: rid, readingTitle: currentReadingTitle(), messages: [], themes: [] };
+    journal.push(e);
+  }
+  e.messages = messages;
+  if (themes) e.themes = themes;
+  e.readingTitle = currentReadingTitle();
+  e.edited = now;
+  saveJournal(journal);
+}
+function toddChatPrompt(messages, opening) {
+  const hl = currentHighlights();
+  const hlText = hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — their note: ' + c.comment : ''}`).join('\n');
+  const w = currentWeekPrompt();
+  const promptText = w ? w.prompt : '(no prompt selected)';
+  const focus = loadChatFocus();
+  const transcript = messages.map(m => (m.role === 'todd' ? 'You (Todd)' : 'Student') + ': ' + m.text).join('\n');
+  const focusLine = focus === 'exploratory'
+    ? 'MODE: Exploratory. Use the prompt as a lens, but keep the conversation open and curious. Follow their thinking, surface threads across their highlights, and let them wander into what interests them. Do not push toward a single answer.'
+    : 'MODE: Focused. Your job is to help them build toward a real answer to this week\'s prompt, using their highlights as the evidence. Keep the conversation pointed at the prompt; when they drift, gently bring it back.';
+  const rule = opening
+    ? (focus === 'exploratory'
+        ? 'This is the FIRST turn. Name this week\'s question in a sentence. If the prompt centers on something you cannot see (a board, a video, a figure, a task they did), say so plainly and ask them to describe it and what they noticed. Otherwise, name 2-3 threads across their highlights and invite them into one. One question. Under 120 words.'
+        : 'This is the FIRST turn. Name this week\'s question in a sentence. If it centers on something you cannot see (a board they ranked, a video they watched, a figure, a task they did), say so plainly and ask them to describe that specific thing and their first reasoning about it — that is exactly what their entry needs. Otherwise, point to which highlights are the raw material and ask one question that starts them building an answer. Under 120 words.')
+    : (focus === 'exploratory'
+        ? 'Respond to their last message in one or two sentences, then ask ONE short question that follows their curiosity — deeper on this thread, or over to another. If they mention something visual, have them describe it rather than assuming you can see it.'
+        : 'Respond to their last message in one or two sentences, then ask ONE short question that moves them a step closer to answering the prompt. When they have enough, help them consolidate a clear answer they could write down — always in their own words, built from their own evidence.');
+  return `You are Todd-in-a-Can, an AI reading partner for a pre-service teacher in TCE 318P. They read a professional article about teaching and learning mathematics and marked the passages that struck them. You do NOT have the article — only their highlights, this week's journal prompt, and this conversation.
+
+You work from TEXT ONLY. You cannot see images, game boards, videos, figures, tables, student work, or the article itself — only what the student types and the text of their highlights. Several prompts turn on something the student saw or did (a board they are ranking, a video they attended, figures, a hands-on task). You are blind to those; the student is your eyes. Never pretend to see such a thing or guess at its contents — instead, ask the student to describe it and what they noticed, then press on their reasoning. Owning what you cannot see is not a weakness here; it is how you make them put their thinking into words.
+
+Talk WITH them about what they noticed. Help them think by asking, never by answering. Never summarize or explain the article. Never write their journal entry or hand them a thesis. One short question per turn. Warm, plain, direct, curious — an instructor's voice.
+
+${focusLine}
+
+THIS WEEK'S JOURNAL PROMPT (the question their entry must answer):
+${promptText}
+
+Their highlights (their evidence):
+${hlText}
+${transcript ? '\nConversation so far:\n' + transcript + '\n' : ''}
+${rule}
+
+Reply with your turn only — no "Todd:" label, no preamble.`;
+}
+let _chatBusy = false;
+function setChatBusy(on) { _chatBusy = on; renderNbChat(); }
+function focusChatInput() { const i = document.getElementById('nbChatText'); if (i) setTimeout(() => i.focus(), 30); }
+async function startToddChat() {
+  if (!currentWeekPrompt()) { renderNbChat('Pick this week\'s reading prompt above first — that\'s the question we\'ll build your entry toward.'); return; }
+  if (!currentHighlights().length) { renderNbChat('Highlight a few passages in the reading first — then I can help you use them to work toward this week\'s prompt.'); return; }
+  setChatBusy(true);
+  let reply;
+  try { reply = await callModel(toddChatPrompt([], true)); } catch (e) { reply = null; }
+  _chatBusy = false;
+  if (!reply) { renderNbChat('Could not reach the AI. Check your setup with the AI button in the header, then try again.'); return; }
+  upsertChat([{ role: 'todd', text: reply, ts: Date.now() }]);
+  renderNbChat();
+  focusChatInput();
+}
+async function sendToddMessage() {
+  const inp = document.getElementById('nbChatText');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text || _chatBusy) return;
+  const cur = getChatEntry();
+  const messages = (cur && cur.messages) ? cur.messages.slice() : [];
+  messages.push({ role: 'you', text, ts: Date.now() });
+  upsertChat(messages);
+  inp.value = '';
+  setChatBusy(true);
+  let reply;
+  try { reply = await callModel(toddChatPrompt(messages, false)); } catch (e) { reply = null; }
+  _chatBusy = false;
+  const msgs = (getChatEntry()?.messages || messages).slice();
+  msgs.push({ role: 'todd', text: reply || 'Could not reach the AI. Check your setup with the AI button, then keep going.', ts: Date.now() });
+  upsertChat(msgs);
+  renderNbChat();
+  focusChatInput();
+}
+function startOverToddChat() {
+  if (!getChatEntry()) return;
+  if (!confirm('Start this conversation over? Your current entry for this reading will be cleared.')) return;
+  saveJournal(loadJournal().filter(e => !(e.readingId === currentReadingId() && e.kind === 'chat')));
+  renderNbChat();
+}
+function renderNbChat(note) {
+  renderPromptPicker();
+  // Reflect the active focus mode on the toggle.
+  const fc = loadChatFocus();
+  document.querySelectorAll('#nbFocus button').forEach(b => b.classList.toggle('active', b.dataset.f === fc));
+  // Highlights pane (read-only reference).
+  const hlBox = document.getElementById('nbHlList');
+  if (hlBox) {
+    const hl = currentHighlights();
+    hlBox.innerHTML = hl.length
+      ? hl.map((c, i) => `<div class="nb-hl"><span class="nb-hl-n">${i + 1}</span><div class="nb-hl-body"><div class="nb-hl-passage">${escHtml(c.passage || '(a figure)')}</div>${c.comment ? `<div class="nb-hl-note">${escHtml(c.comment)}</div>` : ''}</div></div>`).join('')
+      : '<div class="nb-empty">No highlights yet. In the reading, mark the passages that strike you (Box mode, or select text → Highlight). They gather here, and Todd builds the conversation from them.</div>';
+  }
+  // Chat pane.
+  const log = document.getElementById('nbChatLog');
+  const inputRow = document.getElementById('nbChatInput');
+  if (!log) return;
+  const entry = getChatEntry();
+  const msgs = (entry && entry.messages) ? entry.messages : [];
+  if (note) {
+    log.innerHTML = `<div class="nb-chat-note">${escHtml(note)}</div>`;
+  } else if (!msgs.length) {
+    log.innerHTML = `<div class="nb-chat-start"><p>Talk through what you marked. Todd finds 2–3 threads across your highlights and asks you about them, one at a time. The conversation becomes today's entry.</p><button class="nb-send" onclick="startToddChat()"${_chatBusy ? ' disabled' : ''}>${_chatBusy ? 'Todd is reading your highlights…' : '✦ Start the conversation'}</button></div>`;
+  } else {
+    log.innerHTML = msgs.map(m =>
+      `<div class="nb-msg ${m.role === 'todd' ? 'from-todd' : 'from-you'}"><span class="nb-msg-who">${m.role === 'todd' ? 'Todd-in-a-Can' : 'You'}</span><div class="nb-msg-text">${escHtml(m.text)}</div></div>`).join('')
+      + (_chatBusy ? '<div class="nb-msg from-todd"><span class="nb-msg-who">Todd-in-a-Can</span><div class="nb-msg-text nb-typing">…thinking</div></div>' : '');
+    log.scrollTop = log.scrollHeight;
+  }
+  if (inputRow) inputRow.style.display = msgs.length ? 'flex' : 'none';
+}
+
 function openNotebook() {
-  // If text is selected (chat or reading), carry it into the draft first.
-  const sel = (window.getSelection ? window.getSelection().toString() : '').trim();
-  if (sel) appendToDraft('“' + sel + '”');
   document.getElementById('nbSub').textContent = t('nbSub');
   // Name the actual reading on its tab (truncate long chapter titles).
   const rt = document.querySelector('.nb-tab[data-view="reading"]');
-  if (rt) { const t = currentReadingTitle(); rt.textContent = '📖 ' + (t.length > 30 ? t.slice(0, 30).trim() + '…' : t); rt.title = t; }
+  if (rt) { const tt = currentReadingTitle(); rt.textContent = '📖 ' + (tt.length > 30 ? tt.slice(0, 30).trim() + '…' : tt); rt.title = tt; }
   nbEditingId = null; nbOpenEntryId = null; nbSelectedDay = null; nbCalStart = null;
   setNbView('reading');
-  applyNbMode();
   applyNbFullscreen();
-  const ta = document.getElementById('nbCompose');
-  ta.value = loadDraft();
-  if (!ta.value.trim()) {
-    const hl0 = comments.filter(c => c.passage || c.comment);
-    if (hl0.length) {
-      ta.value = 'My highlights from this reading:\n' + hl0.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — ' + c.comment : ''}`).join('\n') + '\n\n';
-      saveDraft(ta.value);
-    }
-  }
-  const tp = document.getElementById('ticPrompt'); if (tp) tp.value = loadPrompt();
-  const tb = document.getElementById('ticBanner'); if (tb) { tb.style.display = 'none'; tb.textContent = ''; }
+  renderNbChat();
   document.getElementById('nbModalOverlay').classList.add('open');
-  setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }, 50);
 }
 // Layout of the This-reading view (Overleaf-style: just write, both panes, or just pages).
 // Side-by-side needs width, so on phones a stored 'split' shows as 'write' WITHOUT
@@ -3154,6 +3427,18 @@ function saveEditedEntry(id) {
 function entryHtml(e, opts) {
   opts = opts || {};
   const editedTag = (e.edited && e.edited !== e.ts) ? t('editedSuffix') : '';
+  // Chat entries: render the Todd-in-a-Can conversation as a transcript.
+  if (e.kind === 'chat') {
+    const turns = (e.messages || []).map(m =>
+      `<div class="nb-tx-turn"><span class="nb-tx-who">${m.role === 'todd' ? 'Todd' : 'You'}</span>${escHtml(m.text)}</div>`).join('');
+    return `<div class="nb-entry">
+      <div class="nb-entry-head"><span class="nb-date">${fmtDate(e.ts)}${editedTag}</span>${opts.showReading ? `<span class="nb-reading-tag">${escHtml(e.readingTitle || readingTitleFor(e.readingId))}</span>` : ''}</div>
+      <div class="nb-transcript">${turns || '<em>Empty conversation.</em>'}</div>
+      <div class="nb-entry-meta"><span></span><span class="nb-entry-actions">
+        <button class="nb-mini danger" onclick="deleteNotebookEntry('${e.id}')">${escHtml(t('delete'))}</button>
+      </span></div>
+    </div>`;
+  }
   if (nbEditingId === e.id) {
     return `<div class="nb-entry editing">
       <div class="nb-entry-head"><span class="nb-date">${fmtDate(e.ts)}${editedTag}</span>${opts.showReading ? `<span class="nb-reading-tag">${escHtml(e.readingTitle || readingTitleFor(e.readingId))}</span>` : ''}</div>
@@ -3184,7 +3469,7 @@ function renderNotebook() {
   applyEditFocus();
   if (nbView === 'calendar') return renderCalendar();
   if (nbView === 'byreading') return renderByReading();
-  return renderReadingEntries();
+  return renderNbChat();
 }
 
 // THIS-READING view — dated, editable pages for the current reading, newest first.
@@ -3207,8 +3492,8 @@ function renderCalendar() {
   const all = loadJournal().filter(e => e.ts);
   const byDay = {};
   all.forEach(e => { const k = dayKey(e.ts); (byDay[k] = byDay[k] || []).push(e); });
-  const WINDOW = 5; // the fall semester: August–December 2026
-  nbCalStart = new Date(2026, 7, 1); // fixed to the semester (August 2026)
+  const WINDOW = 6; // July (for testing) through December 2026 — set to (2026,7) & WINDOW 5 for the real Aug–Dec semester
+  nbCalStart = new Date(2026, 6, 1); // start at July 2026 so current test entries are visible
   const loc = UI_LOCALE[uiLang] || undefined;
   const mName = (y, mo) => new Date(y, mo, 1).toLocaleDateString(loc, { month: 'long' });
   const dow = Array.from({ length: 7 }, (_, i) => new Date(2023, 0, 1 + i).toLocaleDateString(loc, { weekday: 'narrow' })); // 2023-01-01 = Sunday
@@ -3314,7 +3599,10 @@ async function shareWithElbow(id, checked) {
 function exportNotebook() {
   const entries = readingEntries().slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
   if (!entries.length) { alert(t('alertNotebookEmpty')); return; }
-  const body = entries.map(e => `${fmtDate(e.ts)}${(e.edited && e.edited !== e.ts) ? ' (edited)' : ''}\n\n${e.text}`).join('\n\n— — —\n\n');
+  const plain = e => (e.kind === 'chat' && e.messages)
+    ? e.messages.map(m => (m.role === 'todd' ? 'Todd-in-a-Can' : 'You') + ': ' + m.text).join('\n\n')
+    : (e.text || '');
+  const body = entries.map(e => `${fmtDate(e.ts)}${(e.edited && e.edited !== e.ts) ? ' (edited)' : ''}\n\n${plain(e)}`).join('\n\n— — —\n\n');
   const blob = new Blob([`Notebook — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3325,9 +3613,13 @@ function exportNotebook() {
 
 // Whole-journal, human-readable export — the submission artifact (one PDF).
 function printJournal() {
-  const all = loadJournal().filter(e => e.text && e.text.trim());
+  const hasBody = e => (e.text && e.text.trim()) || (e.kind === 'chat' && e.messages && e.messages.length);
+  const all = loadJournal().filter(hasBody);
   if (!all.length) { alert(t('alertNotebookEmpty')); return; }
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
+  const bodyHtml = e => (e.kind === 'chat' && e.messages)
+    ? e.messages.map(m => `<p class="jr-turn"><span class="jr-who">${m.role === 'todd' ? 'Todd-in-a-Can' : 'You'}:</span> ${esc(m.text).replace(/\n/g, '<br>')}</p>`).join('')
+    : esc(e.text).replace(/\n/g, '<br>');
   const groups = {};
   all.forEach(e => { const rid = e.readingId || 'reading'; (groups[rid] = groups[rid] || []).push(e); });
   const lastTs = rid => Math.max.apply(null, groups[rid].map(e => e.ts || 0));
@@ -3336,7 +3628,7 @@ function printJournal() {
     const entries = groups[rid].slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
     const title = entries[0].readingTitle || readingTitleFor(rid);
     const pages = entries.map(e =>
-      `<article><div class="jr-date">${esc(fmtDate(e.ts))}${(e.edited && e.edited !== e.ts) ? ' \u00b7 edited' : ''}</div><div class="jr-body">${esc(e.text).replace(/\n/g, '<br>')}</div></article>`
+      `<article><div class="jr-date">${esc(fmtDate(e.ts))}${(e.edited && e.edited !== e.ts) ? ' \u00b7 edited' : ''}</div><div class="jr-body">${bodyHtml(e)}</div></article>`
     ).join('');
     return `<section><h2>${esc(title)}</h2>${pages}</section>`;
   }).join('');
@@ -3347,7 +3639,8 @@ function printJournal() {
     h1{font-size:1.5rem;margin:0 0 .2rem} .sub{color:#666;font-size:.85rem;margin-bottom:2.2rem;font-family:sans-serif}
     section{margin:0 0 2rem} h2{font-size:1.05rem;border-bottom:2px solid #333;padding-bottom:.2rem;margin:1.8rem 0 .8rem}
     article{margin:0 0 1.3rem;break-inside:avoid} .jr-date{font-weight:bold;font-size:.9rem;font-family:sans-serif;color:#333}
-    .jr-body{margin-top:.35rem} .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
+    .jr-body{margin-top:.35rem} .jr-turn{margin:.25rem 0} .jr-who{font-weight:bold;color:#333}
+    .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
     @media print{.noprint{display:none}}
   </style></head><body>
     <button class="noprint" onclick="window.print()">Print / Save as PDF</button>
@@ -3388,6 +3681,7 @@ function closeWelcome() { const o = document.getElementById('welcomeOverlay'); i
 // ═══════════════════════════════════
 migrateJournalOnce();
 migrateMarginNotesOnce();
+migratePdfStoreOnce();
 renderUiLangPicker();
 applyI18n();
 loadNotesFromStorage();
@@ -3397,6 +3691,13 @@ if (comments.length > 0) {
   renderComments();
 }
 updateAIBtn();
+updateSaveBtn(); // reflect that nothing's unsaved yet this session
+
+// Take-it-with-you nudge: if there are unsaved changes, warn before leaving so
+// work isn't lost on a shared computer that wipes site data on logout.
+window.addEventListener('beforeunload', function (e) {
+  if (workDirty) { e.preventDefault(); e.returnValue = ''; }
+});
 
 if (!localStorage.getItem('cr318_seen_welcome')) openWelcome();
 
