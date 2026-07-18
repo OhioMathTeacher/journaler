@@ -385,6 +385,9 @@ body.header-collapsed .bar-restore { display: block; }
   background: transparent; color: #7A7062; cursor: pointer; transition: all 0.2s;
   display: flex; align-items: center; gap: 0.35rem;
 }
+/* Icon-only header buttons (Calendar · Notebook): bigger glyph, square-ish hit area. */
+.nb-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.3rem 0.5rem; gap: 0; }
+.nb-btn.has-entries { border-color: var(--cave-glow); color: var(--cave-glow); }
 .nb-btn:hover { border-color: rgba(212,168,67,0.5); color: #BDB3A2; }
 .nb-btn.has-entries { border-color: rgba(212,168,67,0.55); color: var(--cave-glow); }
 .nb-modal-overlay {
@@ -404,8 +407,8 @@ body.header-collapsed .bar-restore { display: block; }
 .nb-modal-overlay.fullscreen .nb-modal { width: 100vw; height: 100vh; max-width: none; border-radius: 0; border: none; }
 /* Window controls (fullscreen toggle + ✕ close), pinned top-right of the modal. */
 .nb-winctl { position: absolute; top: 1rem; right: 1.3rem; display: flex; align-items: center; gap: 0.9rem; z-index: 3; }
-.nb-fs-toggle { font-family:'DM Sans',sans-serif; font-size: 0.74rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; user-select: none; }
-.nb-fs-toggle input { accent-color: var(--accent); cursor: pointer; }
+.nb-fs-toggle { font-family:'DM Sans',sans-serif; font-size: 0.74rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; user-select: none; background: transparent; border: 1px solid var(--comment-border); border-radius: 6px; padding: 0.22rem 0.55rem; }
+.nb-fs-toggle:hover { color: var(--accent); border-color: var(--accent); }
 .nb-close-x { font-size: 1.5rem; line-height: 1; color: var(--muted); background: transparent; border: none; cursor: pointer; padding: 0 0.25rem; border-radius: 6px; }
 .nb-close-x:hover { color: var(--accent); background: rgba(122,59,16,0.08); }
 .nb-modal h2 { font-family: 'Crimson Pro', serif; font-weight: 400; color: var(--ink); font-size: 1.35rem; margin-bottom: 0.05rem; }
@@ -475,9 +478,18 @@ body.header-collapsed .bar-restore { display: block; }
   background: transparent; border: none; border-bottom: 2px solid transparent; padding: 0.45rem 0.7rem; cursor: pointer; margin-bottom: -1px; }
 .nb-tab:hover { color: var(--accent); }
 .nb-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.nb-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* Notebook = write + this reading's pages. Compose (the writing surface) gets most of
+   the modal; the saved-pages list sits below it and scrolls. Calendar is its own modal. */
+.nb-compose { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; margin-bottom: 0.75rem; }
+.nb-pages { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; max-height: 34%; }
+.nb-pages-title { font-family:'DM Sans',sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
+.nb-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .nb-view[hidden] { display: none; }
-#nbViewCalendar, #nbViewByReading { overflow-y: auto; }
+#nbEntries, #nbViewCalendar { overflow-y: auto; }
+/* In the Calendar modal, the grid takes the whole modal. */
+#calModalOverlay #nbViewCalendar { flex: 1 1 auto; }
+/* While editing a page, it fills the modal (compose + pages heading collapse). */
+.nb-modal.editing .nb-pages { max-height: none; flex: 1 1 auto; }
 /* Date chip + entry head */
 .nb-entry-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
 .nb-date { font-family:'DM Sans',sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); }
@@ -488,7 +500,8 @@ body.header-collapsed .bar-restore { display: block; }
 /* Focused edit mode — while editing a page, the chrome gets out of the way and the
    writing surface fills the modal (Elbow's blank page, no one looking over your shoulder). */
 .nb-modal.editing #nbSub,
-.nb-modal.editing .nb-tabs,
+.nb-modal.editing .nb-compose,
+.nb-modal.editing .nb-pages-title,
 .nb-modal.editing .nb-mode-bar,
 .nb-modal.editing .nb-pane-title { display: none; }
 .nb-modal.editing h2 { margin-bottom: 0.5rem; }
@@ -749,9 +762,9 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <button class="load-btn" id="captureModeBtn" onclick="toggleCaptureMode()" title="Box mode: drag a box on the page to capture a passage or a figure. Toggle to select text normally.">▭ Box</button>
         <button class="load-btn" id="zoomOutBtn" onclick="zoomPdf(-1)" title="Zoom out">A−</button>
         <button class="load-btn" id="zoomInBtn" onclick="zoomPdf(1)" title="Zoom in">A+</button>
-        <button class="nb-btn" id="nbBtn" onclick="openNotebook()" title="Your private writer's notebook for this reading">
-          <span>✎</span><span data-i18n="notebook">Notebook</span>
-        </button>
+        <button class="nb-btn icon-btn" id="nbBtn" onclick="openNotebook()" title="Notebook — write this week's entry for this reading" aria-label="Notebook">📓</button>
+        <button class="nb-btn icon-btn" id="calBtn" onclick="openCalendar()" title="Calendar — your writing days across the semester" aria-label="Calendar">📅</button>
+        <button class="nb-btn icon-btn" id="journalBtn" onclick="openJournal()" title="Your journal — every entry grouped by reading (what you turn in)" aria-label="Journal">🖨</button>
         <button class="load-btn icon-btn" id="saveJournalBtn" onclick="exportAll()" title="Save your work to a file — download it to your thumb drive, cloud, or email" aria-label="Save your work to a file">⤓</button>
         <button class="ai-btn" id="aiBtn" onclick="openAIModal()">
           <span class="ai-dot"></span><span id="aiBtnLabel">AI: Off</span>
@@ -764,38 +777,6 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <button class="bar-restore" id="barRestore" onclick="setHeaderCollapsed(false)" title="Show the top bar" data-i18n="showBar">⤢ Show bar</button>
 
 <!-- Load Text Modal -->
-<div class="load-modal-overlay" id="loadModalOverlay" onclick="if(event.target===this)closeLoadModal()">
-  <div class="load-modal">
-    <h2>Load Text</h2>
-    <div class="load-field-row">
-      <label>Title</label>
-      <input type="text" id="loadTitle" placeholder="e.g. Letter from Birmingham Jail" autocomplete="off">
-    </div>
-    <div class="load-field-row">
-      <label>Author</label>
-      <input type="text" id="loadAuthor" placeholder="e.g. Martin Luther King Jr." autocomplete="off">
-    </div>
-    <div class="load-field-row">
-      <label>Source / Translator <span class="load-optional">(optional)</span></label>
-      <input type="text" id="loadSource" placeholder="e.g. tr. Mary Jones · Penguin, 1995" autocomplete="off">
-    </div>
-    <div class="load-field-row">
-      <label>Text <span class="load-optional">— paste below, or open a .txt, .docx, or .pdf file</span></label>
-      <textarea id="loadTextarea" placeholder="Paste your text here. Blank lines will be treated as paragraph breaks." spellcheck="false"></textarea>
-    </div>
-    <div class="load-file-row">
-      <button class="load-file-btn" onclick="document.getElementById('loadFileInput').click()">Open file…</button>
-      <input type="file" id="loadFileInput" accept=".txt,.docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" style="display:none" onchange="loadFromFile(event)">
-      <span class="load-file-hint" id="loadFileHint"></span>
-    </div>
-    <div class="load-modal-actions">
-      <button class="lm-load" onclick="loadFromPaste()">Load Text</button>
-      <button class="lm-cancel" onclick="closeLoadModal()">Cancel</button>
-      <button class="lm-clear" id="lmClearBtn" style="display:none" onclick="clearCustomText()">× Close this article</button>
-    </div>
-  </div>
-</div>
-
 <!-- AI Settings Modal -->
 <div class="ai-modal-overlay" id="aiModalOverlay" onclick="if(event.target===this)closeAIModal()">
   <div class="ai-modal">
@@ -865,20 +846,16 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <div class="nb-modal-overlay" id="nbModalOverlay" onclick="if(event.target===this)closeNotebook()">
   <div class="nb-modal">
     <div class="nb-winctl">
-      <label class="nb-fs-toggle"><input type="checkbox" id="nbFsChk" onchange="setNbFullscreen(this.checked)"> <span data-i18n="fullscreen">Fullscreen</span></label>
+      <button class="nb-fs-toggle" type="button" onclick="setNbFullscreen(!nbFullscreen)" title="Toggle fullscreen"><span id="nbFsLabel">⤢ Fullscreen</span></button>
       <button class="nb-close-x" onclick="closeNotebook()" aria-label="Close" title="Close">×</button>
     </div>
     <h2 data-i18n="notebook">Notebook</h2>
     <div class="nb-sub" id="nbSub" data-i18n="nbSub">Your private notes on this reading — yours alone unless you share one.</div>
-    <div class="nb-tabs" role="tablist">
-      <button class="nb-tab active" data-view="reading" onclick="setNbView('reading')" data-i18n="tabThisReading">This reading</button>
-      <button class="nb-tab" data-view="calendar" onclick="setNbView('calendar')" data-i18n="tabCalendar">📅 Calendar</button>
-      <button class="nb-tab" data-view="byreading" onclick="setNbView('byreading')" data-i18n="tabByReading">By reading</button>
-    </div>
-    <div class="nb-view" id="nbViewReading">
-      <div class="nb-prompt-picker">
-        <select id="nbPromptWeek" class="nb-pp-select" onchange="setPromptWeek(this.value)"></select>
-        <div class="nb-pp-text" id="nbPromptText" style="display:none"></div>
+    <!-- COMPOSE — always visible, tied to the current reading: this is where you write. -->
+    <div class="nb-compose" id="nbViewReading">
+      <div class="nb-prompt">
+        <div class="nb-pp-text" id="nbPromptText"></div>
+        <div class="nb-prompt-pick" id="nbPromptPick" hidden></div>
       </div>
       <div class="nb-chat-panes">
         <div class="nb-pane nb-pane-highlights">
@@ -897,12 +874,42 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         </div>
       </div>
     </div>
-    <div class="nb-view" id="nbViewCalendar" hidden></div>
-    <div class="nb-view" id="nbViewByReading" hidden></div>
+    <div class="nb-foot">
+      <button class="nb-cancel" onclick="closeNotebook()" data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR — its own modal, opened from the header 📅 button. Browse every page
+     you've written by date; click a day to read those pages (grouped by reading). -->
+<div class="nb-modal-overlay" id="calModalOverlay" onclick="if(event.target===this)closeCalendar()">
+  <div class="nb-modal">
+    <div class="nb-winctl">
+      <button class="nb-close-x" onclick="closeCalendar()" aria-label="Close" title="Close">×</button>
+    </div>
+    <h2 data-i18n="calendar">Calendar</h2>
+    <div class="nb-sub" data-i18n="calSub">Every day you wrote is marked. Click a day to read those pages.</div>
+    <div class="nb-view" id="nbViewCalendar"></div>
+    <div class="nb-foot">
+      <button class="nb-cancel" onclick="closeCalendar()" data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOURNAL — opened from the header 🖨 button. Every entry you've written, grouped by
+     reading. This is the compilation you print and turn in (what gets graded). -->
+<div class="nb-modal-overlay" id="journalModalOverlay" onclick="if(event.target===this)closeJournal()">
+  <div class="nb-modal">
+    <div class="nb-winctl">
+      <button class="nb-close-x" onclick="closeJournal()" aria-label="Close" title="Close">×</button>
+    </div>
+    <h2 data-i18n="journalTitle">Your Journal</h2>
+    <div class="nb-sub" data-i18n="journalSub">Every entry, grouped by reading — this is what you turn in.</div>
+    <div class="nb-view" id="nbViewByReading"></div>
     <div class="nb-foot">
       <button class="nb-mini" onclick="exportNotebook()" data-i18n="export">↓ Export</button>
       <button class="nb-mini" onclick="printJournal()" title="A printable copy of your whole journal to submit">🖶 Print / PDF</button>
-      <button class="nb-cancel" onclick="closeNotebook()" data-i18n="close">Close</button>
+      <button class="nb-cancel" onclick="closeJournal()" data-i18n="close">Close</button>
     </div>
   </div>
 </div>
@@ -1008,9 +1015,11 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-startover:hover{color:#b23;text-decoration:underline}
 .nb-pane-chat .nb-pane-title{display:flex;align-items:center;gap:.4rem}
 .nb-chat-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
-.nb-prompt-picker{margin-top:.6rem}
-.nb-pp-select{width:100%;font-family:inherit;font-size:.9rem;padding:.5rem .6rem;border:1px solid #d8d3c2;border-radius:8px;background:#fff;color:#2a2a24}
-.nb-pp-text{margin-top:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-left:3px solid #8a7a3a;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;line-height:1.5;color:#3a352a}
+.nb-prompt{margin-top:.6rem}
+.nb-pp-text{background:#f6f4ea;border:1px solid #e6e2d2;border-left:3px solid #8a7a3a;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;line-height:1.5;color:#3a352a}
+.nb-prompt-pick{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.nb-week-chip{font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;color:#7A7062;background:#fff;border:1px solid #d8d3c2;border-radius:999px;padding:.25rem .7rem;cursor:pointer}
+.nb-week-chip:hover{border-color:#8a7a3a;color:#3a352a}
 .nb-focus{display:inline-flex;border:1px solid #d8d3c2;border-radius:20px;overflow:hidden}
 .nb-focus button{background:none;border:0;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;letter-spacing:0;text-transform:none;padding:.22rem .7rem;cursor:pointer;color:#8a8474}
 .nb-focus button.active{background:#3a5a40;color:#fff}
@@ -1035,6 +1044,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 </div>
 
 <input type="file" id="importAllInput" accept=".json,application/json" style="display:none" onchange="importAll(event)">
+<input type="file" id="pdfInput" accept="application/pdf,.pdf" style="display:none" onchange="openPdfFromInput(event)">
 
 <div class="main-container">
   <div class="text-column" id="textColumn"></div>
@@ -1080,6 +1090,11 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   import * as pdfjsLib from './vendor/pdf.min.mjs';
   pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.mjs';
   window.pdfjsLib = pdfjsLib;
+  // pdf.js 6 moved JBIG2 / JPEG2000 (OpenJPEG) / ICC decoding into WebAssembly,
+  // loaded from wasmUrl. Without it, JBIG2-compressed scans (most JSTOR PDFs)
+  // fail to decode and the page renders blank. Trailing slash matters — pdf.js
+  // builds the path as wasmUrl + "jbig2.wasm". Spread into every getDocument().
+  window.PDF_DOC_OPTS = { wasmUrl: './vendor/wasm/' };
 </script>
 <script>
 // ════════════════════════════════════════════════════════════
@@ -1092,10 +1107,11 @@ let pdfRenderToken = 0; // guards against interleaved re-renders
 let pdfCaptureMode = 'box'; // 'box' = drag-to-capture · 'select' = native text selection
 let captureText = '';
 let captureImage = '';
-let pdfZoom = 1; // fit-to-width baseline; zoom buttons scale up/down
+let pdfZoom = 0.7; // open a few clicks below fit-to-width (roomier page); zoom buttons adjust
 
 function setLoadFileHint(message, tone = '') {
   const hint = document.getElementById('loadFileHint');
+  if (!hint) return;   // no-op once the paste modal is gone (PDF-only)
   hint.textContent = message;
   hint.className = 'load-file-hint' + (tone ? ' ' + tone : '');
 }
@@ -1226,7 +1242,7 @@ async function extractDocxMetadata(arrayBuffer) {
 }
 
 async function extractPdfText(arrayBuffer) {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, ...window.PDF_DOC_OPTS }).promise;
   const pages = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
@@ -1318,38 +1334,22 @@ async function loadFilePayload(file) {
   throw new Error('Supported file types are .txt, .docx, and .pdf.');
 }
 
+// "Open article" — Journaler always loads a PDF, so this goes straight to a file picker.
 function openLoadModal() {
-  const clearBtn = document.getElementById('lmClearBtn');
-  if (customText) {
-    pendingImport = {
-      title: customText.title || '',
-      author: customText.author || '',
-      source: customText.source || '',
-      fileName: customText.fileName || '',
-      fileType: customText.fileType || 'text'
-    };
-    document.getElementById('loadTitle').value    = customText.title || '';
-    document.getElementById('loadAuthor').value   = customText.author || '';
-    document.getElementById('loadSource').value   = customText.source || '';
-    document.getElementById('loadTextarea').value  = customText.raw || '';
-    clearBtn.style.display = 'inline-flex';
-    setLoadFileHint(customText.fileName ? 'Current file: ' + customText.fileName : '', customText.fileName ? 'success' : '');
-  } else {
-    pendingImport = null;
-    document.getElementById('loadTitle').value    = '';
-    document.getElementById('loadAuthor').value   = '';
-    document.getElementById('loadSource').value   = '';
-    document.getElementById('loadTextarea').value  = '';
-    clearBtn.style.display = 'none';
-    setLoadFileHint('');
-  }
-  document.getElementById('loadModalOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('loadTitle').focus(), 50);
+  const inp = document.getElementById('pdfInput');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+function openPdfFromInput(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  if (getFileExtension(file.name) !== 'pdf') { alert('Please choose a PDF file.'); return; }
+  openPdfAsReader(file);
 }
 
-function closeLoadModal() {
-  document.getElementById('loadModalOverlay').classList.remove('open');
-  document.getElementById('loadFileInput').value = '';
+function closeLoadModal() {   // retained for callers; the paste modal is gone (PDF-only)
+  const ov = document.getElementById('loadModalOverlay');
+  if (ov) ov.classList.remove('open');
 }
 
 async function loadFromFile(event) {
@@ -1515,7 +1515,7 @@ async function openPdfAsReader(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const cacheBytes = arrayBuffer.slice(0); // keep a copy before pdf.js detaches the buffer
-    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer, ...window.PDF_DOC_OPTS }).promise;
     let info = {};
     try { const md = await pdfDoc.getMetadata(); info = (md && md.info) || {}; } catch {}
     customText = {
@@ -1524,6 +1524,7 @@ async function openPdfAsReader(file) {
       source: '', fileName: file.name, fileType: 'pdf', isPdf: true
     };
     pendingImport = null;
+    await detectAndSetPromptWeek(pdfDoc, customText);  // pick this week's prompt from the PDF
     savePdfBytes(currentReadingId(), cacheBytes);
     closeLoadModal();
     const btn = document.getElementById('loadBtn');
@@ -1531,6 +1532,7 @@ async function openPdfAsReader(file) {
     const lt = document.getElementById('langToggles'); if (lt) lt.style.display = 'none';
     renderText();
     loadNotesForActiveReading();
+    if (document.getElementById('nbModalOverlay').classList.contains('open')) renderNotebook();
   } catch (err) {
     console.error(err);
     setLoadFileHint('Could not open PDF: ' + err.message, 'error');
@@ -1801,6 +1803,9 @@ const STRINGS = {
     toFreewrite: '→ Freewrite', cancel: 'Cancel', ask: 'Ask',
     nbSub: 'Write your entry here. Ask Todd-in-a-Can to press your thinking. Save a dated entry when it is ready.',
     tabThisReading: 'This reading', tabCalendar: '📅 Calendar', tabByReading: 'By reading',
+    calendar: 'Calendar', calSub: 'Every day you wrote is marked. Click a day to read those pages.',
+    journalTitle: 'Your Journal', journalSub: 'Every entry, grouped by reading — this is what you turn in.',
+    yourPagesTitle: 'Your pages for this reading',
     freewrite: 'Freewrite',
     nbModeWrite: '✎ Write', nbModeSplit: '⊞ Split', nbModePages: '📖 Pages', nbPagesTitle: 'Your pages', fullscreen: 'Fullscreen',
     freewriteTipHtml: 'This is your <strong>freewrite</strong> — raw, private thinking, in the spirit of Peter Elbow. Keep your pen moving; nothing here is graded or shared. It saves itself automatically. When a page is worth keeping, hit <em>“Add freewrite to notebook”</em> to tear it off into a dated page below — which you can still re-open, edit, or delete anytime. It\'s your writing.',
@@ -2555,9 +2560,11 @@ async function switchToReading(encId) {
   const bytes = await loadPdfBytes(id);
   if (id !== currentReadingId()) return; // user switched again while loading
   if (bytes) {
-    try { pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise; } catch (e) { pdfDoc = null; console.warn('render cached pdf failed', e); }
+    try { pdfDoc = await pdfjsLib.getDocument({ data: bytes, ...window.PDF_DOC_OPTS }).promise; } catch (e) { pdfDoc = null; console.warn('render cached pdf failed', e); }
   }
   renderText();
+  await detectAndSetPromptWeek(pdfDoc, customText);       // this reading's prompt follows the PDF
+  if (document.getElementById('nbModalOverlay').classList.contains('open')) renderNotebook();
 }
 
 // Full backup: every cr_* item EXCEPT API keys, as one JSON file.
@@ -3058,10 +3065,9 @@ function readingEntries(rid) { rid = rid || currentReadingId(); return loadJourn
 function loadNotebook() { return readingEntries(); }
 
 // Notebook view state.
-let nbView = 'reading';      // 'reading' | 'calendar' | 'byreading'
 let nbMode = localStorage.getItem('cr_nbmode') || 'split';  // 'write' | 'split' | 'pages' — layout of the This-reading view
-let nbFullscreen = localStorage.getItem('cr_nbfull');       // edge-to-edge modal; defaults ON
-nbFullscreen = (nbFullscreen === null) ? true : (nbFullscreen === '1');
+let nbFullscreen = localStorage.getItem('cr_nbfull');       // edge-to-edge modal; defaults OFF (windowed)
+nbFullscreen = (nbFullscreen === '1');
 let nbSelectedDay = null;    // dayKey string in the Calendar view
 let nbCalStart = null;       // Date (1st of month) — first of the 4-month window
 let nbEditingId = null;      // entry id currently in inline-edit mode
@@ -3074,79 +3080,10 @@ function fmtDate(ts) {
 function dayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
 
 // The DRAFT — your current page, always auto-saved (no save/cancel). Passages
-// the freewrite (draft): passages you send while reading stack here;
-// "Add freewrite to notebook" tears it off as a saved entry.
-function draftKey() { return 'cr_nbdraft_' + currentReadingId(); }
-function loadDraft() { return localStorage.getItem(draftKey()) || ''; }
-function saveDraft(text) { localStorage.setItem(draftKey(), text || ''); updateNotebookBtn(); markDirty(); }
-
 // This week's prompt, kept per reading (pasted from the Reading Homework sheet).
 function promptKey() { return 'cr_prompt_' + currentReadingId(); }
 function savePrompt(v) { try { localStorage.setItem(promptKey(), v || ''); } catch {} }
 function loadPrompt() { return localStorage.getItem(promptKey()) || ''; }
-
-// Todd-in-a-Can (reader): reads ONLY the student's highlights, notes, the week's
-// prompt, and their current draft — never the article — and asks ONE question.
-async function askToddInACan() {
-  const btn = document.getElementById('ticBtn');
-  const banner = document.getElementById('ticBanner');
-  const ta = document.getElementById('nbCompose');
-  const hl = comments.filter(c => (c.passage || c.comment));
-  banner.style.display = 'block';
-  if (!hl.length) { banner.textContent = 'Highlight a few passages in the reading first, then I can ask about what you noticed.'; return; }
-  // First time: pull the student's highlights into the writing space to start from.
-  const SEED = 'My highlights from this reading:';
-  if (ta && ta.value.indexOf(SEED) === -1) {
-    const block = SEED + '\n' + hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — ' + c.comment : ''}`).join('\n') + '\n';
-    ta.value = block + (ta.value.trim() ? '\n' + ta.value : '\n');
-    saveDraft(ta.value);
-  }
-  const prompt = (document.getElementById('ticPrompt').value || '').trim();
-  const draft = (ta ? ta.value : '').trim();
-  const hlText = hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — your note: ' + c.comment : ''}`).join('\n');
-  const sys = `You are Todd-in-a-Can, an AI reading partner for a pre-service teacher in TCE 318P. They read a professional article about teaching and learning mathematics and marked the passages that struck them. You do NOT have the article — only their highlights, their notes, this week's journal prompt, and the draft entry they are writing.
-
-Help them think and build a stronger journal entry by asking, never by answering. Rules: never explain or summarize the article; never write their entry or hand them a thesis; ask ONE short question at a time, two or three sentences; if you notice a trend across their highlights, name it in one sentence, then ask about it; steer gently toward this week's prompt without answering it; be warm, plain, direct, and curious, in an instructor's voice.
-
-This week's prompt in the student's own words, and how they plan to tackle it: ${prompt || '(they have not described it yet)'}
-
-What they highlighted:
-${hlText}
-
-Their draft so far:
-${draft || '(nothing written yet)'}
-
-Reply with ONE short question that moves their thinking forward. No preamble.`;
-  banner.innerHTML = '<span class="tic-thinking">Todd-in-a-Can is reading your highlights…</span>';
-  btn.disabled = true;
-  let reply;
-  try { reply = await callModel(sys); } catch (e) { reply = 'Could not reach the AI. Check your setup with the AI button.'; }
-  btn.disabled = false;
-  banner.style.display = 'none';
-  if (ta) {
-    const q = '\nTodd-in-a-Can asks: ' + (reply || 'No response.') + '\n\n';
-    ta.value = ta.value.replace(/\s*$/, '') + '\n' + q;
-    saveDraft(ta.value);
-    ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length;
-  }
-}
-function appendToDraft(snippet) {
-  const cur = loadDraft();
-  const next = cur.trim() ? cur.replace(/\s*$/, '') + '\n\n' + snippet + '\n\n' : snippet + '\n\n';
-  saveDraft(next);
-  const ta = document.getElementById('nbCompose');
-  if (ta && document.getElementById('nbModalOverlay').classList.contains('open')) {
-    ta.value = next; ta.selectionStart = ta.selectionEnd = ta.value.length;
-  }
-}
-// "→ Freewrite" from the selection popup: stash the passage in the freewrite and keep reading.
-function sendSelectionToNotebook() {
-  const text = selectedText;
-  if (!text) return;
-  appendToDraft('“' + text + '”');
-  closePopup();
-  toast(t('toastFreewrite'));
-}
 
 let _toastTimer;
 function toast(msg) {
@@ -3158,7 +3095,7 @@ function toast(msg) {
 
 function updateNotebookBtn() {
   const btn = document.getElementById('nbBtn');
-  if (btn) btn.classList.toggle('has-entries', loadNotebook().length > 0 || !!loadDraft().trim());
+  if (btn) btn.classList.toggle('has-entries', loadNotebook().length > 0);
 }
 
 // ═══════════════════════════════════
@@ -3170,36 +3107,62 @@ function updateNotebookBtn() {
 // conversation to the actual question of the week (source: the Reading Homework sheets).
 const WEEK_PROMPTS = [
   { id: 'wk1', label: 'Week 1 · Learner — Engagement (McFeetors & Palfy)',
+    match: ['mcfeetors', 'palfy'],
     prompt: `Engagement. How do games engage students in mathematics — and what instructional aims do we have to protect when we use them? Where does the mathematical thinking live in a game, and where can a game drift into play that isn't doing mathematical work? Draw on McFeetors and Palfy, and on what you noticed playing Tuesday, as your evidence.` },
   { id: 'wk2', label: 'Week 2 · Listener → Questioner — Listening & student talk (Reinhart; Switzer)',
+    match: ['reinhart', 'switzer'],
     prompt: `Listening and student talk. What does it take for students to do the explaining and the teacher the listening — and what gets lost when they don't? Reinhart concluded that his students "would have to do the explaining, and I, the listening." Draw on Reinhart, and on our Hundred Chart Challenge, as your evidence — cite specific moments you remember.` },
   { id: 'wk3', label: 'Week 3 · Poser — Meeting learners where they are (Newell & Orton; van Hiele)',
+    match: ['newell', 'orton', 'van hiele', 'hiele'],
     prompt: `Meeting learners where they are. How can one task or routine invite children at different levels of thinking into the same conversation — without pushing a child past where she is, or holding her back? Van Hiele describes levels of geometric thinking; Newell and Orton offer routines built to hold many at once. Pick one routine and one grade level and make it concrete, drawing on the routine you ran Tuesday as your evidence.` },
   { id: 'wk4', label: 'Week 4 · Planner — Rigor & justification (Edwards et al.; Simpson et al.)',
+    match: ['pentomino', 'simpson', 'edwards'],
     prompt: `Rigor and justification. What turns doing a mathematics task into having to justify it — and how do we raise a task's demand without leaving learners behind? Edwards uses pentominoes to provoke argument, not just measurement; Simpson gives a way to lift a task to a deeper level. Draw on both, and on the pentomino work you did Tuesday, as your evidence.` },
   { id: 'wk5', label: 'Week 5 · Assessor — Assessment for learning (McGatha & Darcy)',
+    match: ['mcgatha', 'darcy'],
     prompt: `Assessment for learning. What does an assessment make visible, what does it hide, and how do we use it for a learner, not just about them? McGatha sorts rubrics by what they reveal and how they weight it. Draw on McGatha, and on the rubrics you scored Tuesday, as your evidence — and connect it to the child you begin profiling Thursday.` }
 ];
+// Auto-detect which week's reading this PDF is, by matching author surnames in the
+// PDF's title/author metadata and first page of text. Sets the reading's prompt so the
+// student never picks it. Only runs if a prompt isn't already set for this reading.
+async function detectAndSetPromptWeek(doc, ct) {
+  try {
+    if (localStorage.getItem(manualPromptKey())) return; // student picked the week by hand — respect it
+    let hay = ((ct.title || '') + ' ' + (ct.author || '') + ' ' + (ct.fileName || '')).toLowerCase();
+    try {
+      const p1 = await doc.getPage(1);
+      const tc = await p1.getTextContent();
+      hay += ' ' + tc.items.map(i => i.str).join(' ').toLowerCase();
+    } catch {}
+    const hit = WEEK_PROMPTS.find(p => (p.match || []).some(k => hay.includes(k)));
+    if (hit) localStorage.setItem(promptWeekKey(), hit.id); // PDF is authoritative — override any stale value
+  } catch {}
+}
 function promptWeekKey() { return 'cr_promptweek_' + currentReadingId(); }
+function manualPromptKey() { return 'cr_promptweek_manual_' + currentReadingId(); }
 function loadPromptWeek() { return localStorage.getItem(promptWeekKey()) || ''; }
 function currentWeekPrompt() { return WEEK_PROMPTS.find(p => p.id === loadPromptWeek()) || null; }
 function setPromptWeek(id) {
   localStorage.setItem(promptWeekKey(), id || '');
+  localStorage.setItem(manualPromptKey(), '1'); // a hand-pick sticks across reopens (beats auto-detect)
   renderPromptPicker();
   renderNbChat();
 }
+// The prompt is auto-detected from the PDF (see detectAndSetPromptWeek), so the student
+// never picks it. Show it read-only. If detection missed, offer week chips as a fallback.
 function renderPromptPicker() {
-  const sel = document.getElementById('nbPromptWeek');
-  if (sel) {
-    const cur = loadPromptWeek();
-    sel.innerHTML = '<option value="">Choose this week\'s reading prompt…</option>' +
-      WEEK_PROMPTS.map(p => `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${escHtml(p.label)}</option>`).join('');
-  }
   const box = document.getElementById('nbPromptText');
+  const pick = document.getElementById('nbPromptPick');
+  const w = currentWeekPrompt();
   if (box) {
-    const w = currentWeekPrompt();
-    box.innerHTML = w ? escHtml(w.prompt).replace(/\n/g, '<br>') : '';
-    box.style.display = w ? 'block' : 'none';
+    box.innerHTML = w
+      ? escHtml(w.prompt).replace(/\n/g, '<br>')
+      : '<em>Open this week’s reading PDF and its prompt appears here. Not the right one? Pick the week:</em>';
+  }
+  if (pick) {
+    pick.hidden = !!w;
+    pick.innerHTML = w ? '' : WEEK_PROMPTS.map(p =>
+      `<button type="button" class="nb-week-chip" onclick="setPromptWeek('${p.id}')">${escHtml(p.label.split(' · ')[0])}</button>`).join('');
   }
 }
 function loadChatFocus() { return localStorage.getItem('cr_chatfocus') === 'exploratory' ? 'exploratory' : 'focused'; }
@@ -3336,14 +3299,32 @@ function renderNbChat(note) {
 
 function openNotebook() {
   document.getElementById('nbSub').textContent = t('nbSub');
-  // Name the actual reading on its tab (truncate long chapter titles).
-  const rt = document.querySelector('.nb-tab[data-view="reading"]');
-  if (rt) { const tt = currentReadingTitle(); rt.textContent = '📖 ' + (tt.length > 30 ? tt.slice(0, 30).trim() + '…' : tt); rt.title = tt; }
-  nbEditingId = null; nbOpenEntryId = null; nbSelectedDay = null; nbCalStart = null;
-  setNbView('reading');
+  nbEditingId = null;
   applyNbFullscreen();
-  renderNbChat();
+  renderNotebook();     // compose (write) + this reading's saved pages
   document.getElementById('nbModalOverlay').classList.add('open');
+}
+// Calendar is its own modal, opened from the header 📅 button — browse every page by date.
+function openCalendar() {
+  nbEditingId = null; nbOpenEntryId = null; nbSelectedDay = null; nbCalStart = null;
+  renderCalendar();
+  document.getElementById('calModalOverlay').classList.add('open');
+}
+function closeCalendar() { document.getElementById('calModalOverlay').classList.remove('open'); }
+// Journal is its own modal, opened from the header 🖨 button — every entry grouped by
+// reading; the compilation you print and turn in.
+function openJournal() {
+  nbEditingId = null; nbOpenEntryId = null;
+  renderByReading();
+  document.getElementById('journalModalOverlay').classList.add('open');
+}
+function closeJournal() { document.getElementById('journalModalOverlay').classList.remove('open'); }
+// Re-render whichever journal surfaces are open after an edit/delete/save/share.
+function refreshJournalViews() {
+  if (document.getElementById('nbModalOverlay').classList.contains('open')) renderNotebook();
+  if (document.getElementById('calModalOverlay').classList.contains('open')) renderCalendar();
+  if (document.getElementById('journalModalOverlay').classList.contains('open')) renderByReading();
+  updateNotebookBtn();
 }
 // Layout of the This-reading view (Overleaf-style: just write, both panes, or just pages).
 // Side-by-side needs width, so on phones a stored 'split' shows as 'write' WITHOUT
@@ -3367,40 +3348,16 @@ function setNbMode(m) {   // an explicit user click — remember it
 function applyNbFullscreen() {
   const ov = document.getElementById('nbModalOverlay');
   if (ov) ov.classList.toggle('fullscreen', nbFullscreen);
-  const chk = document.getElementById('nbFsChk');
-  if (chk) chk.checked = nbFullscreen;
+  const lbl = document.getElementById('nbFsLabel');
+  if (lbl) lbl.textContent = nbFullscreen ? '⤡ Exit fullscreen' : '⤢ Fullscreen';
 }
 function setNbFullscreen(on) {
   nbFullscreen = on;
   try { localStorage.setItem('cr_nbfull', on ? '1' : '0'); } catch {}
   applyNbFullscreen();
 }
-// Switch notebook view (This reading / Calendar / By reading).
-function setNbView(v) {
-  nbView = v;
-  document.querySelectorAll('.nb-tab').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  const R = document.getElementById('nbViewReading'), C = document.getElementById('nbViewCalendar'), B = document.getElementById('nbViewByReading');
-  if (R) R.hidden = (v !== 'reading');
-  if (C) C.hidden = (v !== 'calendar');
-  if (B) B.hidden = (v !== 'byreading');
-  renderNotebook();
-}
 function closeNotebook() { document.getElementById('nbModalOverlay').classList.remove('open'); } // draft is kept
 
-function addNotebookEntry() {
-  const ta = document.getElementById('nbCompose');
-  const text = ta.value.trim();
-  if (!text) return;
-  const journal = loadJournal();
-  const now = Date.now();
-  journal.push({ id: 'e' + now + Math.round(Math.random() * 1e4), ts: now, edited: now, text,
-    readingId: currentReadingId(), readingTitle: currentReadingTitle() });
-  saveJournal(journal);
-  saveDraft('');     // page kept below (still editable) — clear the freewrite for the next one
-  ta.value = '';
-  renderNotebook();
-  updateNotebookBtn();
-}
 // Delete is ALWAYS available — it's the student's writing; they can tear a page
 // out anytime. A gentle confirm guards against a misclick, nothing more.
 function deleteNotebookEntry(id) {
@@ -3408,8 +3365,7 @@ function deleteNotebookEntry(id) {
   saveJournal(loadJournal().filter(e => e.id !== id));
   if (nbEditingId === id) nbEditingId = null;
   if (nbOpenEntryId === id) nbOpenEntryId = null;
-  renderNotebook();
-  updateNotebookBtn();
+  refreshJournalViews();
 }
 // Living pages: any entry can be re-opened and edited in place.
 // Grow an edit textarea to fit its content so you're never writing in a cramped,
@@ -3421,14 +3377,14 @@ function nbAutoGrow(ta) {
   if (modal && modal.classList.contains('editing')) { ta.style.height = ''; return; }
   ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
 }
-// While a page in the This-reading view is open for editing, collapse the surrounding
-// chrome (CSS .editing) so the writing surface gets the whole modal.
+// While a saved page is open for editing, collapse the compose surface (CSS .editing)
+// so the editor fills the Notebook modal. Scoped to the Notebook (not the Calendar).
 function applyEditFocus() {
-  const modal = document.querySelector('.nb-modal');
-  if (modal) modal.classList.toggle('editing', !!nbEditingId && nbView === 'reading');
+  const modal = document.querySelector('#nbModalOverlay .nb-modal');
+  if (modal) modal.classList.toggle('editing', !!nbEditingId);
 }
-function editNotebookEntry(id) { nbEditingId = id; renderNotebook(); setTimeout(() => { const t = document.getElementById('nbEdit_' + id); if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; nbAutoGrow(t); } }, 20); }
-function cancelEditEntry() { nbEditingId = null; renderNotebook(); }
+function editNotebookEntry(id) { nbEditingId = id; refreshJournalViews(); setTimeout(() => { const t = document.getElementById('nbEdit_' + id); if (t) { t.focus(); t.selectionStart = t.selectionEnd = t.value.length; nbAutoGrow(t); } }, 20); }
+function cancelEditEntry() { nbEditingId = null; refreshJournalViews(); }
 function saveEditedEntry(id) {
   const ta = document.getElementById('nbEdit_' + id);
   if (!ta) return;
@@ -3444,8 +3400,7 @@ function saveEditedEntry(id) {
     saveJournal(journal);
   }
   nbEditingId = null;
-  renderNotebook();
-  updateNotebookBtn();
+  refreshJournalViews();
 }
 
 // One entry's markup, reused by all three views. showReading adds a reading tag
@@ -3490,12 +3445,11 @@ function entryHtml(e, opts) {
   </div>`;
 }
 
-// Dispatch to the active view.
+// Notebook = the writing surface (compose) only. Past pages live in Calendar (by date)
+// and Journal (by reading).
 function renderNotebook() {
   applyEditFocus();
-  if (nbView === 'calendar') return renderCalendar();
-  if (nbView === 'byreading') return renderByReading();
-  return renderNbChat();
+  renderNbChat();          // compose: prompt · highlights · Todd-in-a-Can
 }
 
 // THIS-READING view — dated, editable pages for the current reading, newest first.
@@ -3593,8 +3547,10 @@ function renderByReading() {
     const entries = groups[rid].slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const title = entries[0].readingTitle || readingTitleFor(rid);
     const rows = entries.map(e => {
-      const oneLine = e.text.replace(/\s+/g, ' ').trim();
-      const snippet = oneLine.slice(0, 90);
+      // Chat entries have no .text — flatten the transcript for the snippet.
+      const raw = e.text || (e.kind === 'chat' ? (e.messages || []).map(m => m.text).join(' ') : '') || '';
+      const oneLine = raw.replace(/\s+/g, ' ').trim();
+      const snippet = oneLine.slice(0, 90) || 'Conversation with Todd-in-a-Can';
       return `<div class="br-row">
         <button class="br-rowhead" onclick="nbToggleEntry('${e.id}')"><span class="nb-date">${fmtDate(e.ts)}</span><span class="br-snippet">${escHtml(snippet)}${oneLine.length > 90 ? '…' : ''}</span></button>
         ${nbOpenEntryId === e.id ? entryHtml(e) : ''}
@@ -3612,15 +3568,15 @@ async function shareWithElbow(id, checked) {
   if (!entry) return;
   if (!checked) {
     entry.elbowShared = false; entry.elbow = null;
-    saveJournal(journal); renderNotebook(); return;
+    saveJournal(journal); refreshJournalViews(); return;
   }
   entry.elbowShared = true; entry.elbow = '…';
-  saveJournal(journal); renderNotebook();
+  saveJournal(journal); refreshJournalViews();
   const reading = entry.readingId ? READINGS[entry.readingId] : null;
   const reply = await askElbow(entry.text, reading && reading.elbowDoor);
   // Re-load in case the journal changed while waiting, then store Elbow's reply.
   journal = loadJournal(); entry = journal.find(e => e.id === id);
-  if (entry && entry.elbowShared) { entry.elbow = reply; saveJournal(journal); renderNotebook(); }
+  if (entry && entry.elbowShared) { entry.elbow = reply; saveJournal(journal); refreshJournalViews(); }
 }
 function exportNotebook() {
   const entries = readingEntries().slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
