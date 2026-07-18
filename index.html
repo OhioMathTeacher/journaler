@@ -865,7 +865,9 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <div class="nb-pane nb-pane-chat">
           <div class="nb-pane-title">Todd-in-a-Can <span class="nb-chat-sub">· today's entry</span>
             <span class="nb-focus" id="nbFocus" title="Focused = build toward answering the prompt · Exploratory = open, curious wandering"><button type="button" data-f="focused" onclick="setChatFocus('focused')">Focused</button><button type="button" data-f="exploratory" onclick="setChatFocus('exploratory')">Exploratory</button></span>
+            <button class="nb-take-btn" onclick="askForTake()" title="Todd asks you to state your take — the heart of your entry">✓ State my take</button>
             <button class="nb-startover" onclick="startOverToddChat()" title="Clear this conversation and start again">↺ Start over</button></div>
+          <div class="nb-take" id="nbTake" hidden></div>
           <div class="nb-chat-log" id="nbChatLog"></div>
           <div class="nb-chat-input" id="nbChatInput" style="display:none">
             <textarea id="nbChatText" rows="2" placeholder="Type your reply… (Enter to send · Shift+Enter for a new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendToddMessage()}"></textarea>
@@ -1012,8 +1014,13 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-chat-start{text-align:center;color:#7a7365;max-width:32rem;margin:1.4rem auto;font-size:.9rem}
 .nb-chat-start p{margin-bottom:1rem;line-height:1.5}
 .nb-chat-note{color:#8a7a3a;font-size:.88rem;text-align:center;margin:1.2rem auto;max-width:30rem;line-height:1.5}
-.nb-startover{margin-left:auto;background:none;border:0;color:#9a8a5a;font-size:.72rem;cursor:pointer;font-family:'DM Sans',sans-serif}
+.nb-take-btn{margin-left:auto;background:#2f5233;border:0;color:#fff;font-size:.72rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;border-radius:999px;padding:.2rem .7rem}
+.nb-take-btn:hover{background:#264428}
+.nb-startover{background:none;border:0;color:#9a8a5a;font-size:.72rem;cursor:pointer;font-family:'DM Sans',sans-serif}
 .nb-startover:hover{color:#b23;text-decoration:underline}
+.nb-take{background:#eef4ee;border:1px solid #cfe0cf;border-left:3px solid #2f5233;border-radius:6px;padding:.5rem .7rem;margin-bottom:.5rem}
+.nb-take-label{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#2f5233;margin-bottom:.2rem}
+.nb-take-text{font-size:.9rem;line-height:1.5;color:#2a3a2a}
 .nb-pane-chat .nb-pane-title{display:flex;align-items:center;gap:.4rem}
 .nb-chat-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
 .nb-prompt{margin-top:.6rem}
@@ -3283,10 +3290,21 @@ async function sendToddMessage() {
   const text = inp.value.trim();
   if (!text || _chatBusy) return;
   const cur = getChatEntry();
+  const awaitingTake = !!(cur && cur.awaitingTake); // student is answering "state your take"
   const messages = (cur && cur.messages) ? cur.messages.slice() : [];
-  messages.push({ role: 'you', text, ts: Date.now() });
+  messages.push({ role: 'you', text, ts: Date.now(), ...(awaitingTake ? { take: true } : {}) });
   upsertChat(messages);
   inp.value = '';
+  // The take turn closes the entry — record it and give a short close, no probing question.
+  if (awaitingTake) {
+    setChatTake(text);
+    const msgs = (getChatEntry()?.messages || messages).slice();
+    msgs.push({ role: 'todd', text: 'That’s your take — saved at the top of your entry. You can keep going, revise it, or stop here.', ts: Date.now() });
+    upsertChat(msgs);
+    renderNbChat();
+    focusChatInput();
+    return;
+  }
   setChatBusy(true);
   let reply;
   try { reply = await callModel(toddChatPrompt(messages, false)); } catch (e) { reply = null; }
@@ -3297,6 +3315,29 @@ async function sendToddMessage() {
   renderNbChat();
   focusChatInput();
 }
+// The closing move the Reading Journal is built around: Todd asks the student to state
+// their take, and that take is surfaced at the top of the printed entry.
+function askForTake() {
+  const cur = getChatEntry();
+  if (!cur || !cur.messages || !cur.messages.length) { renderNbChat('Start the conversation first — then, when you’re ready, state your take on this week’s question.'); return; }
+  const q = 'Before we stop — in three or four sentences, what’s your take on this week’s question now? Say what the evidence has you thinking, and where it’s still uncertain.';
+  const msgs = cur.messages.slice();
+  if (msgs.length && msgs[msgs.length - 1].ask === 'take') return; // already asked, waiting
+  msgs.push({ role: 'todd', text: q, ts: Date.now(), ask: 'take' });
+  upsertChat(msgs);
+  patchChatEntry({ awaitingTake: true });
+  renderNbChat();
+  focusChatInput();
+}
+// Persist extra fields on the week's chat entry without disturbing its messages.
+function patchChatEntry(patch) {
+  const journal = loadJournal();
+  const e = journal.find(x => x.readingId === journalGroupId() && x.kind === 'chat');
+  if (!e) return;
+  Object.assign(e, patch); e.edited = Date.now();
+  saveJournal(journal);
+}
+function setChatTake(text) { patchChatEntry({ take: text, awaitingTake: false }); }
 function startOverToddChat() {
   if (!getChatEntry()) return;
   if (!confirm('Start this conversation over? Your current entry for this week will be cleared.')) return;
@@ -3324,6 +3365,14 @@ function renderNbChat(note) {
   if (!log) return;
   const entry = getChatEntry();
   const msgs = (entry && entry.messages) ? entry.messages : [];
+  // The take (the closing move) sits above the conversation — the heart of the entry.
+  const takeBox = document.getElementById('nbTake');
+  if (takeBox) {
+    if (entry && entry.take) {
+      takeBox.hidden = false;
+      takeBox.innerHTML = `<div class="nb-take-label">Your take</div><div class="nb-take-text">${escHtml(entry.take)}</div>`;
+    } else { takeBox.hidden = true; takeBox.innerHTML = ''; }
+  }
   if (note) {
     log.innerHTML = `<div class="nb-chat-note">${escHtml(note)}</div>`;
   } else if (!msgs.length) {
@@ -3642,6 +3691,20 @@ function printJournal() {
   const bodyHtml = e => (e.kind === 'chat' && e.messages)
     ? e.messages.map(m => `<p class="jr-turn"><span class="jr-who">${m.role === 'todd' ? 'Todd-in-a-Can' : 'You'}:</span> ${esc(m.text).replace(/\n/g, '<br>')}</p>`).join('')
     : esc(e.text).replace(/\n/g, '<br>');
+  // Derive each group's week + prompt + pooled highlights, so a submitted entry reads
+  // prompt -> my take -> my highlights -> my conversation.
+  const weekIdFor = rid => rid.startsWith('week:') ? rid.slice(5) : (localStorage.getItem('cr_promptweek_' + rid) || '');
+  const promptFor = wid => { const p = WEEK_PROMPTS.find(x => x.id === wid); return p ? p.prompt : ''; };
+  const groupHls = (rid, wid) => {
+    const ids = wid ? weekReadingIds(wid) : [rid];
+    const out = [];
+    ids.forEach(r => {
+      let arr = []; try { arr = JSON.parse(localStorage.getItem('cr_margin_notes_' + r)) || []; } catch {}
+      const rt = readingTitleFor(r);
+      arr.filter(c => c.passage || c.comment).forEach(c => out.push({ ...c, _reading: rt }));
+    });
+    return out;
+  };
   const groups = {};
   all.forEach(e => { const rid = e.readingId || 'reading'; (groups[rid] = groups[rid] || []).push(e); });
   const lastTs = rid => Math.max.apply(null, groups[rid].map(e => e.ts || 0));
@@ -3649,10 +3712,20 @@ function printJournal() {
   const sections = rids.map(rid => {
     const entries = groups[rid].slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
     const title = entries[0].readingTitle || readingTitleFor(rid);
+    const wid = weekIdFor(rid);
+    const prompt = promptFor(wid);
+    const take = entries.map(e => e.take).filter(Boolean)[0] || '';
+    const hls = groupHls(rid, wid);
+    const multi = new Set(hls.map(c => c._reading).filter(Boolean)).size > 1;
+    const promptHtml = prompt ? `<div class="jr-prompt"><span class="jr-lbl">Prompt</span> ${esc(prompt)}</div>` : '';
+    const takeHtml = take ? `<div class="jr-take"><span class="jr-lbl">My take</span> ${esc(take).replace(/\n/g, '<br>')}</div>` : '';
+    const hlsHtml = hls.length
+      ? `<div class="jr-hls"><div class="jr-lbl">My highlights</div><ol>${hls.map(c => `<li>${multi && c._reading ? `<span class="jr-src">${esc(c._reading)}:</span> ` : ''}${esc(c.passage || '(a figure)')}${c.comment ? ` <span class="jr-note">\u2014 ${esc(c.comment)}</span>` : ''}</li>`).join('')}</ol></div>`
+      : '';
     const pages = entries.map(e =>
       `<article><div class="jr-date">${esc(fmtDate(e.ts))}${(e.edited && e.edited !== e.ts) ? ' \u00b7 edited' : ''}</div><div class="jr-body">${bodyHtml(e)}</div></article>`
     ).join('');
-    return `<section><h2>${esc(title)}</h2>${pages}</section>`;
+    return `<section><h2>${esc(title)}</h2>${promptHtml}${takeHtml}${hlsHtml}<div class="jr-lbl jr-convo-lbl">My conversation</div>${pages}</section>`;
   }).join('');
   const w = window.open('', '_blank');
   if (!w) { alert('Please allow pop-ups so your journal can open in a printable window.'); return; }
@@ -3662,6 +3735,12 @@ function printJournal() {
     section{margin:0 0 2rem} h2{font-size:1.05rem;border-bottom:2px solid #333;padding-bottom:.2rem;margin:1.8rem 0 .8rem}
     article{margin:0 0 1.3rem;break-inside:avoid} .jr-date{font-weight:bold;font-size:.9rem;font-family:sans-serif;color:#333}
     .jr-body{margin-top:.35rem} .jr-turn{margin:.25rem 0} .jr-who{font-weight:bold;color:#333}
+    .jr-lbl{font-family:sans-serif;font-size:.72rem;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#555}
+    .jr-prompt{font-size:.92rem;color:#333;background:#f4f4ef;border-left:3px solid #888;padding:.5rem .7rem;margin:.5rem 0}
+    .jr-take{font-size:1rem;background:#eef4ee;border-left:3px solid #2f5233;padding:.6rem .8rem;margin:.6rem 0}
+    .jr-hls{margin:.6rem 0} .jr-hls ol{margin:.3rem 0 0;padding-left:1.4rem} .jr-hls li{margin:.2rem 0;font-size:.9rem}
+    .jr-src{font-weight:bold;color:#555} .jr-note{color:#666;font-style:italic}
+    .jr-convo-lbl{display:block;margin:.8rem 0 .3rem}
     .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
     @media print{.noprint{display:none}}
   </style></head><body>
