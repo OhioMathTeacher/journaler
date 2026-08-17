@@ -3092,7 +3092,16 @@ async function callModel(prompt) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.7 }
+          generationConfig: {
+            maxOutputTokens: 700,
+            temperature: 0.7,
+            // Gemini 2.5 Flash thinks by default and maxOutputTokens caps the
+            // thinking and the reply TOGETHER, so a 200-token budget was spent
+            // almost entirely on thinking and the reader got a few words ending
+            // mid-word. Observed in journaler-284, which had this same line.
+            // Same trap as Sonnet 5's `thinking: { type: 'disabled' }` above.
+            thinkingConfig: { thinkingBudget: 0 }
+          }
         })
       });
       if (!res.ok) {
