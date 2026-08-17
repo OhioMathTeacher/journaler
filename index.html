@@ -572,10 +572,41 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   font-family: 'Crimson Pro', serif; font-weight: 400;
   color: #DDD3C0; font-size: 1.3rem; margin-bottom: 1.1rem;
 }
+/* Three tabs by what the model costs the person — Local / $0 / Pay (Own Key).
+   The grouping is the point: someone deciding whether they can afford to use
+   this should not have to know which company owns which model name. */
+.ai-subtabs {
+  display: flex; gap: 0.15rem; align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.10); margin-bottom: 1rem;
+}
+.ai-subtab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; padding: 0.5rem 0.75rem; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.78rem; color: #7A7A6A;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ai-subtab:hover { color: #DDD3C0; }
+.ai-subtab.on { color: var(--cave-glow); border-bottom-color: var(--cave-glow); }
+/* Always visible, on every tab: what is actually selected right now. Without it
+   the tabs hide the answer to the only question the panel exists to answer,
+   since the choice may live on a tab you are not looking at. */
+.ai-selected {
+  margin-left: auto; padding-right: 0.2rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; color: #7A7A6A;
+}
+.ai-selected b { color: #DDD3C0; font-weight: 600; }
+.ai-disable {
+  background: none; border: none; padding: 0; margin-bottom: 1rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+  color: #7A7A6A; cursor: pointer;
+}
+.ai-disable:hover, .ai-disable.on { color: #DDD3C0; }
 .ai-provider-cards {
   display: grid; grid-template-columns: repeat(2,1fr); gap: 0.6rem;
   margin-bottom: 1.1rem;
 }
+/* A tab with one card should not leave a hole in a two-column grid. */
+.ai-provider-cards[data-tab="local"] { grid-template-columns: 1fr; }
 .ai-provider-card {
   background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08);
   border-radius: 8px; padding: 0.85rem 0.75rem; cursor: pointer;
@@ -602,6 +633,17 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .ai-badge-none { background: rgba(90,90,90,0.3); color: #888; }
 .ai-badge-groq { background: rgba(60,80,160,0.3); color: #8AABE0; }
 .ai-key-section { margin-bottom: 1.1rem; }
+.ai-key-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: 'DM Sans', sans-serif; font-size: 0.66rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: #7A7A6A; margin-bottom: 0.4rem;
+}
+.ai-key-label a {
+  text-transform: none; letter-spacing: normal; font-weight: 500;
+  color: var(--cave-glow); text-decoration: none;
+}
+.ai-key-label a:hover { text-decoration: underline; }
 .ai-key-section input {
   width: 100%; padding: 0.6rem 0.75rem;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(212,168,67,0.2);
@@ -782,39 +824,49 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   <div class="ai-modal">
     <h2>Socrates</h2>
     <p style="font-family:'DM Sans',sans-serif;font-size:0.78rem;color:#7A7A6A;margin:-0.6rem 0 1.1rem">Choose which model gives Socrates his voice. He reads alongside you.</p>
-    <div class="ai-provider-cards">
-      <div class="ai-provider-card" id="card-local" onclick="selectProvider('local')">
+    <div class="ai-subtabs" id="aiSubTabs">
+      <button type="button" class="ai-subtab on" data-ai="local" onclick="selectAITab('local')">Local</button>
+      <button type="button" class="ai-subtab" data-ai="free" onclick="selectAITab('free')">$0</button>
+      <button type="button" class="ai-subtab" data-ai="paid" onclick="selectAITab('paid')">Pay (Own Key)</button>
+      <span class="ai-selected" id="aiSelected"></span>
+    </div>
+    <div class="ai-provider-cards" id="aiProviderCards">
+      <div class="ai-provider-card" id="card-local" data-tab="local" onclick="selectProvider('local')">
         <div class="ai-card-title">Local model (Ollama)</div>
         <div class="ai-card-desc">Private · runs on this computer · no key, no internet.</div>
         <div class="ai-card-badge ai-badge-free">Local</div>
       </div>
-      <div class="ai-provider-card" id="card-anthropic" onclick="selectProvider('anthropic')">
+      <div class="ai-provider-card" id="card-anthropic" data-tab="paid" onclick="selectProvider('anthropic')">
         <div class="ai-card-title">Anthropic Claude</div>
         <div class="ai-card-desc">Your own key. Claude Sonnet — powerful and precise.</div>
         <div class="ai-card-badge ai-badge-paid">Own Key</div>
       </div>
-      <div class="ai-provider-card" id="card-gemini" onclick="selectProvider('gemini')">
+      <div class="ai-provider-card" id="card-gemini" data-tab="free" onclick="selectProvider('gemini')">
         <div class="ai-card-title">Gemini 2.5 Flash</div>
         <div class="ai-card-desc">Free tier via Google. Use a personal Gmail account.</div>
         <div class="ai-card-badge ai-badge-free">Free</div>
       </div>
-      <div class="ai-provider-card" id="card-groq" onclick="selectProvider('groq')">
-        <div class="ai-card-title">Groq (Llama 3.3)</div>
+      <div class="ai-provider-card" id="card-groq" data-tab="free" onclick="selectProvider('groq')">
+        <!-- No model named here on purpose: Groq's model is chosen at call time by
+             the discovery in getGroqModel()/GROQ_PREFERRED, so any name baked into
+             this card is stale the moment that list moves. -->
+        <div class="ai-card-title">Groq</div>
         <div class="ai-card-desc">Free tier. Any email — no Google account needed.</div>
         <div class="ai-card-badge ai-badge-groq">Free</div>
       </div>
-      <div class="ai-provider-card" id="card-custom" onclick="selectProvider('custom')">
+      <!-- "Pay", not "Custom": every endpoint you can put here bills your own
+           account, which is the question the tabs are sorting on. -->
+      <div class="ai-provider-card" id="card-custom" data-tab="paid" onclick="selectProvider('custom')">
         <div class="ai-card-title">OpenAI-compatible</div>
         <div class="ai-card-desc">ChatGPT · DeepSeek · OpenRouter · Alkimi — any endpoint + key + model.</div>
         <div class="ai-card-badge ai-badge-groq">Custom</div>
       </div>
-      <div class="ai-provider-card" id="card-none" onclick="selectProvider('none')">
-        <div class="ai-card-title">No AI</div>
-        <div class="ai-card-desc">Read and annotate without AI assistance.</div>
-        <div class="ai-card-badge ai-badge-none">Off</div>
-      </div>
     </div>
     <div class="ai-key-section" id="aiKeySection" style="display:none">
+      <!-- "Get a key ↗" rides on the field's own label, so someone who has no key
+           is one click from the page that mints one at the moment they find out
+           they need it, rather than being told to go and look for it. -->
+      <label class="ai-key-label" id="aiKeyLabel" for="aiKeyInput"></label>
       <input type="password" id="aiKeyInput" placeholder="Paste your API key here…" autocomplete="off" spellcheck="false"
         onkeydown="if(event.key==='Enter')saveAISettings();if(event.key==='Escape')closeAIModal()">
       <div class="ai-key-hint" id="aiKeyHint">Stored only in your browser · Never in the source code</div>
@@ -832,9 +884,16 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       </div>
       <input type="text" id="aiCustomEndpoint" placeholder="Base URL, e.g. https://api.openai.com/v1" autocomplete="off" spellcheck="false">
       <input type="text" id="aiCustomModel" placeholder="Model, e.g. gpt-4o-mini" autocomplete="off" spellcheck="false">
-      <input type="password" id="aiCustomKey" placeholder="API key…" autocomplete="off" spellcheck="false" onkeydown="if(event.key===\'Enter\')saveAISettings();if(event.key===\'Escape\')closeAIModal()">
+      <!-- The quotes here were backslash-escaped, which is a JS syntax error inside
+           an HTML attribute: Enter and Escape did nothing in this field only. -->
+      <input type="password" id="aiCustomKey" placeholder="API key…" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')saveAISettings();if(event.key==='Escape')closeAIModal()">
       <div class="ai-key-hint">Pick a preset or type any OpenAI-compatible endpoint. For Alkimi, use its base URL + your Alkimi key. Stored only in your browser.</div>
     </div>
+    <!-- Turning Socrates off is a quiet footer, not a card. As a card it competed
+         with the models for attention on every tab; as a footer it is still one
+         click and still always reachable. It sits below the key field so it reads
+         as "or, instead of all this" rather than interrupting the setup flow. -->
+    <button type="button" class="ai-disable" id="aiDisable" onclick="selectProvider('none')">Disable AI</button>
     <div class="ai-modal-actions">
       <button class="am-save" onclick="saveAISettings()">Save</button>
       <button class="am-cancel" onclick="closeAIModal()">Cancel</button>
@@ -2291,8 +2350,25 @@ function updateAIBtn() {
   }
 }
 
+// Which cost-group is showing: 'local' | 'free' | 'paid'.
+let _aiTab = 'local';
+
+// The tab a given provider lives on, so opening the panel lands on the tab the
+// current choice is already on rather than making someone hunt for it.
+const AI_TAB_OF = {
+  local: 'local',
+  gemini: 'free', groq: 'free',
+  anthropic: 'paid', custom: 'paid',
+};
+
+function selectAITab(tab) {
+  _aiTab = tab;
+  _refreshModalCards();
+}
+
 function openAIModal() {
   _modalProvider = getProvider();
+  _aiTab = AI_TAB_OF[_modalProvider] || 'local';
   _refreshModalCards();
   _refreshKeySection();
   document.getElementById('aiModalOverlay').classList.add('open');
@@ -2312,10 +2388,46 @@ function selectProvider(p) {
   if (p !== 'none' && p !== 'local') setTimeout(() => document.getElementById('aiKeyInput').focus(), 30);
 }
 
+// Describes the pending choice for the "Selected:" line. This tracks
+// _modalProvider, not the saved provider, because the panel is staged behind
+// Save — showing the saved one would contradict the card the user just clicked.
+function _modalProviderLabel() {
+  if (_modalProvider === 'local') {
+    const m = getLocalModel();
+    return m ? prettyModelLabel(m) : 'Local (no model chosen)';
+  }
+  if (_modalProvider === 'anthropic') return 'Anthropic Claude' + (getStoredKey('anthropic') ? ' ✓' : '');
+  if (_modalProvider === 'gemini')    return 'Gemini 2.5 Flash' + (getStoredKey('gemini') ? ' ✓' : '');
+  if (_modalProvider === 'groq')      return 'Groq · ' + getGroqModel() + (getStoredKey('groq') ? ' ✓' : '');
+  if (_modalProvider === 'custom') {
+    const m = localStorage.getItem(CUSTOM_MODEL_KEY) || '';
+    return m ? 'OpenAI-compatible · ' + m : 'OpenAI-compatible (setup)';
+  }
+  return 'none';
+}
+
 function _refreshModalCards() {
-  ['local','anthropic','gemini','groq','custom','none'].forEach(p => {
-    document.getElementById('card-' + p).classList.toggle('selected', p === _modalProvider);
+  ['local','anthropic','gemini','groq','custom'].forEach(p => {
+    const card = document.getElementById('card-' + p);
+    if (!card) return;
+    card.classList.toggle('selected', p === _modalProvider);
+    // Only the current tab's cards are in the grid at all — hiding rather than
+    // dimming keeps the two-column layout from growing holes.
+    card.style.display = (card.dataset.tab === _aiTab) ? '' : 'none';
   });
+  const grid = document.getElementById('aiProviderCards');
+  if (grid) grid.dataset.tab = _aiTab;
+  document.querySelectorAll('#aiSubTabs .ai-subtab').forEach(b => {
+    b.classList.toggle('on', b.dataset.ai === _aiTab);
+  });
+  const sel = document.getElementById('aiSelected');
+  if (sel) sel.innerHTML = 'Selected: <b></b>';
+  if (sel) sel.querySelector('b').textContent = _modalProviderLabel();
+  const off = document.getElementById('aiDisable');
+  if (off) {
+    off.classList.toggle('on', _modalProvider === 'none');
+    off.textContent = _modalProvider === 'none' ? '✓ AI disabled' : 'Disable AI';
+  }
 }
 
 // "llama3.2:3b" → "Llama 3.2 · 3B"; "smollm2:1.7b" → "SmolLM 2 · 1.7B".
@@ -2390,15 +2502,36 @@ function _refreshKeySection() {
   section.style.display = 'block';
   const stored = getStoredKey(_modalProvider);
   input.value = stored ? '••••••••••••••••' : '';
-  if (_modalProvider === 'anthropic') {
-    input.placeholder = 'sk-ant-…';
-    hint.innerHTML = 'Stored only in your browser · Never in source code · Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>';
-  } else if (_modalProvider === 'gemini') {
-    input.placeholder = 'AIza…';
-    hint.innerHTML = 'Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a> to get your free key — <strong style="color:#D4A843">use a personal Gmail, not a school account.</strong> Stored only in your browser. Never shared.';
-  } else {
-    input.placeholder = 'gsk_…';
-    hint.innerHTML = 'Visit <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com</a> to get your free key — any email works, no Google account needed. Stored only in your browser. Never shared.';
+  // The hints no longer say where to get a key — that is the label's link now.
+  // What is left is what the link cannot say: the caveat, and where the key goes.
+  const SPEC = {
+    anthropic: {
+      title: 'Anthropic Claude', placeholder: 'sk-ant-…',
+      url: 'https://console.anthropic.com/settings/keys',
+      hint: 'Stored only in your browser · never in the source code · sent to Anthropic and nowhere else.',
+    },
+    gemini: {
+      title: 'Gemini 2.5 Flash', placeholder: 'AIza…',
+      url: 'https://aistudio.google.com/app/apikey',
+      hint: '<strong style="color:#D4A843">Use a personal Gmail, not a school account</strong> — school accounts are usually blocked from AI Studio. Stored only in your browser. Never shared.',
+    },
+    groq: {
+      title: 'Groq', placeholder: 'gsk_…',
+      url: 'https://console.groq.com/keys',
+      hint: 'Any email works — no Google account needed. Stored only in your browser. Never shared.',
+    },
+  };
+  const spec = SPEC[_modalProvider] || SPEC.groq;
+  input.placeholder = spec.placeholder;
+  hint.innerHTML = spec.hint;
+  const label = document.getElementById('aiKeyLabel');
+  if (label) {
+    label.innerHTML = '';
+    label.appendChild(document.createTextNode('API key for ' + spec.title));
+    const a = document.createElement('a');
+    a.href = spec.url; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = 'Get a key ↗';
+    label.appendChild(a);
   }
 }
 
@@ -2443,7 +2576,9 @@ function applyCustomPreset(name) {
     openai:     { ep: 'https://api.openai.com/v1',      model: 'gpt-4o-mini' },
     deepseek:   { ep: 'https://api.deepseek.com/v1',    model: 'deepseek-chat' },
     openrouter: { ep: 'https://openrouter.ai/api/v1',   model: 'meta-llama/llama-3.3-70b-instruct' },
-    groq:       { ep: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' }
+    // llama-3.3-70b-versatile stopped being served on 16 August 2026. This preset
+    // fills the model field, so a retired id here hands the user a broken setup.
+    groq:       { ep: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' }
   }[name];
   if (!P) return;
   document.getElementById('aiCustomEndpoint').value = P.ep;
