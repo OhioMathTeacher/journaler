@@ -283,6 +283,7 @@ body.header-collapsed .bar-restore { display: block; }
   font-size: 0.68rem; color: var(--muted); margin-top: 0.35rem;
   display: flex; justify-content: space-between; align-items: center;
 }
+.comment-page { font-variant-numeric: tabular-nums; letter-spacing: .02em; opacity: .75; }
 .comment-delete {
   background: none; border: none; color: var(--muted); cursor: pointer;
   font-size: 0.68rem; padding: 0 0.2rem; opacity: 0.4; transition: all 0.2s;
@@ -934,6 +935,17 @@ button.cal-cell.selected .cal-dot { background: #fff; }
           </div>
         </div>
       </div>
+      <!-- YOUR RESPONSE — the answer to the week's prompt, written by the student in
+           their own words. Independent of the chat on purpose: talking to Todd is a way
+           to get here, not the only way. This is the field the rubric calls the "take",
+           and it is what the submitted PDF prints under "My take". -->
+      <div class="nb-pane nb-pane-response">
+        <div class="nb-pane-title">Your response <span class="nb-chat-sub">· your answer to this week's prompt, in your own words</span>
+          <span class="nb-resp-state" id="nbRespState"></span></div>
+        <textarea id="nbRespText" class="nb-resp-text" rows="6"
+          placeholder="Answer this week's prompt here. Say what the evidence has you thinking, and where it is still uncertain. Saves as you type."
+          oninput="onResponseInput()"></textarea>
+      </div>
     </div>
     <div class="nb-foot">
       <button class="nb-cancel" onclick="closeNotebook()" data-i18n="close">Close</button>
@@ -1003,6 +1015,13 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .marquee-overlay{position:absolute;inset:0;z-index:3;cursor:crosshair}
   body:not(.marquee-on) .marquee-overlay{cursor:default}
   .marquee-box{position:absolute;border:1.5px solid #3a5a40;background:rgba(90,150,110,.16);pointer-events:none;z-index:4;border-radius:2px}
+  /* The mark sits ABOVE the canvas but BELOW the (transparent) text layer, so the
+     words stay selectable and the yellow reads as ink on the page, not a sticker. */
+  .note-mark{position:absolute;z-index:1;background:rgba(255,214,0,.38);border-radius:2px;pointer-events:none;
+             box-shadow:0 0 0 1px rgba(214,168,0,.35) inset;transition:background .25s,box-shadow .25s}
+  .note-mark.flash{background:rgba(255,170,0,.72);box-shadow:0 0 0 2px rgba(200,130,0,.85) inset}
+  .comment-card{cursor:pointer}
+  .comment-card:hover{box-shadow:0 1px 8px rgba(0,0,0,.13)}
   #capturePopup{z-index:1500}
   #captureModeBtn.has-custom{background:#3a5a40;color:#fff}
   .ai-preset-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.55rem}
@@ -1041,7 +1060,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <p class="welcome-note"><strong>On a shared or public computer?</strong> This browser may forget your work when you log out. Keep your work in a file — thumb drive, cloud, or email: save it with the <strong>⤓</strong> button (top bar) as you go, and open it here each time. On your own device, your work is remembered automatically. Nothing is ever uploaded.</p>
     <div class="welcome-actions">
       <button class="welcome-go" onclick="closeWelcome()">Start reading</button>
-      <button class="welcome-secondary" onclick="closeWelcome();openJournalFile()">⤒ Continue — open my saved file</button>
+      <button class="welcome-secondary" onclick="closeWelcome();openJournalFile()">⤒ Restore my journal backup (.json)</button>
     </div>
   </div>
 </div>
@@ -1056,6 +1075,13 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-hl{display:flex;gap:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-radius:8px;padding:.5rem .6rem}
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
 .nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
+.nb-chat-off{color:#6a6458;font-style:italic}
+.nb-pane-response{margin-top:.9rem}
+.nb-resp-text{width:100%;box-sizing:border-box;min-height:8rem;resize:vertical;padding:.7rem .8rem;
+  border:1px solid rgba(0,0,0,.18);border-radius:7px;background:#fffefa;color:#2a2a24;
+  font-family:Georgia,'Times New Roman',serif;font-size:1rem;line-height:1.55}
+.nb-resp-text:focus{outline:none;border-color:#2f5233;box-shadow:0 0 0 2px rgba(47,82,51,.15)}
+.nb-resp-state{float:right;font-weight:400;font-size:.72rem;color:#8a8272;text-transform:none;letter-spacing:0}
 .nb-hl-note{font-size:.78rem;color:#7a6a4a;margin-top:.25rem;font-style:italic}
 .nb-hl-src{font-size:.68rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a7a3a;margin-bottom:.2rem}
 .nb-chat-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.7rem;padding:.4rem .2rem}
@@ -1099,14 +1125,15 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <div class="selection-popup" id="capturePopup" style="display:none">
   <img id="captureThumb" alt="captured region" style="display:none;max-width:100%;max-height:130px;border-radius:4px;margin-bottom:.5rem;border:1px solid rgba(0,0,0,.15)">
   <div class="popup-passage" id="capturePassage"></div>
-  <input type="text" id="captureInput" placeholder="Add a note (optional)…" autocomplete="off"
+  <input type="text" id="captureInput" placeholder="What do you notice here?" autocomplete="off"
+    oninput="syncCaptureSave()"
     onkeydown="if(event.key==='Enter'){event.preventDefault();saveHighlight()}if(event.key==='Escape')closeCapture()">
   <div class="popup-quick">
     <button class="popup-chip" id="captureFigBtn" onclick="downloadCapture()" style="display:none">↓ Save figure</button>
   </div>
   <div class="popup-actions">
     <button class="popup-btn secondary" onclick="closeCapture()">Cancel</button>
-    <button class="popup-btn primary" id="captureSaveBtn" onclick="saveHighlight()">✎ Highlight</button>
+    <button class="popup-btn primary" id="captureSaveBtn" onclick="saveHighlight()" disabled>✎ Save note</button>
   </div>
 </div>
 
@@ -1173,7 +1200,9 @@ let pdfDoc = null;      // loaded PDFDocumentProxy when a PDF is open
 let pdfRenderToken = 0; // guards against interleaved re-renders
 let pdfCaptureMode = 'box'; // 'box' = drag-to-capture · 'select' = native text selection
 let captureText = '';
-let captureImage = '';
+let captureImage = ''; // cropped region, kept only for "↓ Save figure" — never stored on a note
+let captureAnchor = null; // {page, label, x, y, w, h} — page fractions, so zoom-independent
+let pdfPageLabels = null; // the article's printed page numbers, e.g. ['534','535',…]
 let pdfZoom = 0.7; // open a few clicks below fit-to-width (roomier page); zoom buttons adjust
 
 function setLoadFileHint(message, tone = '') {
@@ -1653,6 +1682,12 @@ function dedupeTextItems(items) {
 async function renderPdf() {
   const doc = pdfDoc;
   if (!doc) return;
+  // The article's OWN page numbers, not the render index. A JSTOR offprint starts
+  // at 534, and "p. 534" is the number the student, the citation and Todd all use;
+  // "p. 1" would be useless for finding or scoring anything. Most published PDFs
+  // carry these labels; if this one does not we fall back to the index.
+  try { pdfPageLabels = await doc.getPageLabels(); }
+  catch (e) { pdfPageLabels = null; console.warn('page labels', e); }
   const token = ++pdfRenderToken;
   textCol.innerHTML = '<div class="pdf-loading">Rendering the article…</div>';
   const wrap = document.createElement('div');
@@ -1700,7 +1735,11 @@ async function renderPdf() {
       const tl = new pdfjsLib.TextLayer({ textContentSource: tc, container: tlDiv, viewport });
       await tl.render();
     } catch (e) { console.warn('text layer page ' + n, e); }
+    // Repaint as pages arrive, so marks appear with the page instead of after the
+    // whole document finishes -- and so a zoom re-render never loses them.
+    paintNoteMarks();
   }
+  paintNoteMarks();
 }
 
 // ── Marquee capture: drag a box on the page to grab EXACTLY the text inside it
@@ -1753,15 +1792,25 @@ function attachMarquee(overlay, canvas, textLayerDiv) {
 }
 
 function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
-  // exact text: spans whose box mostly falls inside the marquee, in reading order
-  const hits = [];
-  textLayerDiv.querySelectorAll('span').forEach(sp => {
-    const r = sp.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    const ix = Math.max(0, Math.min(r.right, boxRect.right) - Math.max(r.left, boxRect.left));
-    const iy = Math.max(0, Math.min(r.bottom, boxRect.bottom) - Math.max(r.top, boxRect.top));
-    if (ix * iy >= 0.35 * (r.width * r.height)) hits.push({ sp, top: r.top, left: r.left });
-  });
+  // exact text: spans whose box mostly falls inside the marquee, in reading order.
+  // A box narrower than the lines it covers clips every span, and at a 0.35 area
+  // threshold a box plainly full of text could come back EMPTY -- which used to
+  // save a note anchored to nothing. So: strict pass first (clean edges), then
+  // retry at any overlap if the strict pass found nothing. Better a slightly
+  // generous quote than a note with no passage.
+  const collect = minFrac => {
+    const out = [];
+    textLayerDiv.querySelectorAll('span').forEach(sp => {
+      const r = sp.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const ix = Math.max(0, Math.min(r.right, boxRect.right) - Math.max(r.left, boxRect.left));
+      const iy = Math.max(0, Math.min(r.bottom, boxRect.bottom) - Math.max(r.top, boxRect.top));
+      if (ix * iy > minFrac * (r.width * r.height)) out.push({ sp, top: r.top, left: r.left });
+    });
+    return out;
+  };
+  let hits = collect(0.35);
+  if (!hits.length) hits = collect(0);
   hits.sort((a, b) => (Math.abs(a.top - b.top) > 4 ? a.top - b.top : a.left - b.left));
   // Drop exact overlapping duplicates (some scans embed text 2-3x at one spot).
   const uniq = [];
@@ -1797,8 +1846,77 @@ function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
   openCapturePopup(text, imgData, boxRect);
 }
 
+// Draw a mark for every anchored note on every rendered page. Fractions -> pixels
+// at whatever the current zoom is, so this is also the re-render hook: call it after
+// renderPdf() and after any change to `comments`.
+function paintNoteMarks() {
+  const pages = document.querySelectorAll('.pdf-page');
+  if (!pages.length) return;
+  pages.forEach(p => p.querySelectorAll('.note-mark').forEach(m => m.remove()));
+  comments.forEach(c => {
+    const a = c.anchor;
+    if (!a || !a.page || a.page > pages.length) return;
+    const pg = pages[a.page - 1];
+    const mark = document.createElement('div');
+    mark.className = 'note-mark';
+    mark.id = 'mark-' + c.id;
+    mark.style.left = (a.x * 100) + '%';
+    mark.style.top = (a.y * 100) + '%';
+    mark.style.width = (a.w * 100) + '%';
+    mark.style.height = (a.h * 100) + '%';
+    pg.appendChild(mark);
+  });
+}
+
+// Click a note -> go to the passage it was written about, and flash it so the eye
+// finds it. This is what the embedded screenshot used to stand in for.
+function jumpToNote(id) {
+  const c = comments.find(x => x.id === id);
+  if (!c || !c.anchor || !c.anchor.page) return;
+  const pg = document.querySelectorAll('.pdf-page')[c.anchor.page - 1];
+  if (!pg) return;
+  const mark = document.getElementById('mark-' + id);
+  (mark || pg).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (mark) {
+    mark.classList.add('flash');
+    setTimeout(() => mark.classList.remove('flash'), 1400);
+  }
+}
+
+function pageLabelFor(n) {
+  const lbl = pdfPageLabels && pdfPageLabels[n - 1];
+  return (lbl && String(lbl).trim()) || String(n);
+}
+
+// Where on the article is this capture? Derived from the capture rect rather than
+// threaded through every caller, so the marquee and a plain text selection answer
+// the same way. Stored as FRACTIONS of the page, never pixels: the reader can zoom,
+// re-render at a different width, or reopen on another machine and the mark still
+// lands on the same words. `page` is the render index (what we scroll to); `label`
+// is the article's own page number (what a human cites).
+function anchorForRect(rect) {
+  const pages = document.querySelectorAll('.pdf-page');
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i].getBoundingClientRect();
+    if (cx < p.left || cx > p.right || cy < p.top || cy > p.bottom) continue;
+    if (!p.width || !p.height) return null;
+    const clamp = v => Math.max(0, Math.min(1, v));
+    const x = clamp((rect.left - p.left) / p.width);
+    const y = clamp((rect.top - p.top) / p.height);
+    return {
+      page: i + 1, label: pageLabelFor(i + 1),
+      x, y,
+      w: clamp(rect.width / p.width) || 0.01,
+      h: clamp(rect.height / p.height) || 0.01
+    };
+  }
+  return null; // not over a rendered page (plain-text reading, or between pages)
+}
+
 function openCapturePopup(text, imgData, boxRect) {
   captureText = text || ''; captureImage = imgData || '';
+  captureAnchor = anchorForRect(boxRect);
   const pop = document.getElementById('capturePopup');
   const thumb = document.getElementById('captureThumb');
   const figBtn = document.getElementById('captureFigBtn');
@@ -1809,6 +1927,7 @@ function openCapturePopup(text, imgData, boxRect) {
     : '(figure — no text in this box)';
   const input = document.getElementById('captureInput');
   input.value = '';
+  syncCaptureSave();
   let left = boxRect.left, top = boxRect.bottom + 8;
   if (left + 320 > window.innerWidth) left = window.innerWidth - 330;
   if (left < 8) left = 8;
@@ -1820,11 +1939,24 @@ function closeCapture() {
   document.getElementById('capturePopup').style.display = 'none';
   document.querySelectorAll('.marquee-box').forEach(b => b.remove());
 }
+// The Save button is live only once the reader has written something. A mark with
+// no thought was never worth keeping: groupHls() filters on `passage || comment`,
+// so a note with neither was silently dropped from the submitted PDF and from
+// Todd-in-a-Can's prompt -- it looked saved in the margin and counted for nothing.
+function syncCaptureSave() {
+  const btn = document.getElementById('captureSaveBtn');
+  const input = document.getElementById('captureInput');
+  if (btn && input) btn.disabled = !input.value.trim();
+}
 function saveHighlight() {
   const comment = document.getElementById('captureInput').value.trim();
-  if (!captureText && !captureImage) { closeCapture(); return; }
+  if (!comment) { document.getElementById('captureInput').focus(); return; }
   const id = ++commentId;
-  comments.push({ id, passage: captureText, comment, image: captureImage, ts: Date.now() });
+  // No image is stored. The page anchor says what the note is directed at, and the
+  // quoted passage carries it in print -- which is what the cropped screenshot was
+  // standing in for. It also keeps base64 PNGs out of localStorage, where they
+  // shared a ~5 MB budget with the journal itself.
+  comments.push({ id, passage: captureText, comment, anchor: captureAnchor, ts: Date.now() });
   saveNotesToStorage();
   renderComments();
   closeCapture();
@@ -1860,12 +1992,12 @@ const UI_LOCALE = { en: 'en-US', es: 'es', el: 'el', zh: 'zh', hi: 'hi', no: 'nb
 const STRINGS = {
   en: {
     yourLanguage: 'Your language', readIn: 'Read in:',
-    instructionsHtml: '<em>Select any passage</em> to ask Socrates · open your <em>Notebook</em> to write your dated journal entry',
+    instructionsHtml: '<em>Select any passage</em> to write a note on it · open your <em>Notebook</em> to write your dated journal entry',
     loadText: 'Open article', notebook: 'Notebook', aiOff: 'AI: Off',
     focusTitle: 'Focus mode — hide the top bar for more room to read & write',
     showBar: '⤢ Show bar', chooseReading: 'Choose a reading', uiLangTitle: 'Interface language',
-    marginNotes: 'Your Highlights', personalAuto: 'Personal — Auto-saved', clear: '✕ Clear', clearTitle: 'Clear all margin notes',
-    emptyStateHtml: "Highlight what strikes you as you read.<br>Box or select a passage, add a note if you like.<br>Your marks collect here.",
+    marginNotes: 'Your Notes', personalAuto: 'Personal — Auto-saved', clear: '✕ Clear', clearTitle: 'Clear all margin notes',
+    emptyStateHtml: "Mark what strikes you as you read, and say why.<br>Box or select a passage, then write your note — no AI needed.<br>Your notes collect here.",
     popupPlaceholder: 'Ask Socrates about this passage…', explainSimply: 'Explain simply', goDeeper: 'Go deeper', giveExample: 'Give an example',
     toFreewrite: '→ Freewrite', cancel: 'Cancel', ask: 'Ask',
     nbSub: 'Write your entry here. Ask Todd-in-a-Can to press your thinking. Save a dated entry when it is ready.',
@@ -2106,8 +2238,19 @@ const ANNOTATIONS = {
 // each text keeps its own thread. currentReadingId() also namespaces custom text.
 function notesKey() { return 'cr_margin_notes_' + currentReadingId(); }
 
+// An unguarded setItem was a real way to lose a term of notes: localStorage caps
+// around 5 MB and the journal shares that budget, so a quota error threw here,
+// dropped the note, and left the reader believing it was saved. Say so instead.
 function saveNotesToStorage() {
-  localStorage.setItem(notesKey(), JSON.stringify(comments));
+  try {
+    localStorage.setItem(notesKey(), JSON.stringify(comments));
+  } catch (e) {
+    console.error('saveNotesToStorage', e);
+    alert('That note could not be saved — this browser\'s storage for the course is full.\n\n'
+        + 'Use ⤓ to save your work to a file before doing anything else, so nothing already '
+        + 'written is lost.');
+    return;
+  }
   markDirty();
 }
 
@@ -2634,7 +2777,7 @@ function renderText() {
   // ── No article open yet (bring-your-own-PDF empty state) ──
   const reading = READINGS[currentReadingSlug];
   if (!reading) {
-    textCol.innerHTML = '<div class="cr-blank"><p>No article open yet.</p><button class="cr-blank-btn" onclick="openLoadModal()">Open article…</button><p class="cr-blank-hint">Download the reading from the JSTOR link on your Reading Homework sheet, then open the PDF here to read and annotate.</p><p class="cr-blank-hint" style="margin-top:.5rem">Been here before on another computer? <a href="#" onclick="event.preventDefault();openJournalFile()" style="color:#3a5a40;font-weight:600;text-decoration:underline">Open your saved file</a> to pick up where you left off.</p></div>';
+    textCol.innerHTML = '<div class="cr-blank"><p>No article open yet.</p><button class="cr-blank-btn" onclick="openLoadModal()">Open article…</button><p class="cr-blank-hint">Download the reading from the JSTOR link on your Reading Homework sheet, then open the PDF here to read and annotate.</p><p class="cr-blank-hint" style="margin-top:.5rem">Been here before on another computer? <a href="#" onclick="event.preventDefault();openJournalFile()" style="color:#3a5a40;font-weight:600;text-decoration:underline">Restore your journal backup</a> — the <code>.json</code> file you saved with ⤓, not the article.</p></div>';
     const sub = document.getElementById('headerSubtitle'); if (sub) sub.textContent = 'Read closely · think in the margins · keep your journal';
     return;
   }
@@ -2716,7 +2859,7 @@ function renderReadingPicker() {
     `<div class="fm-sep"></div>` +
     `<button type="button" class="fm-action" onclick="closeReadingMenu();openLoadModal()">＋ Open a new article…</button>` +
     `<button type="button" class="fm-action" onclick="closeReadingMenu();exportAll()">⤓ Save my work to a file</button>` +
-    `<button type="button" class="fm-action" onclick="openJournalFile()">⤒ Open my saved file…</button>` +
+    `<button type="button" class="fm-action" onclick="openJournalFile()">⤒ Restore journal backup (.json)…</button>` +
     `<div class="fm-sep"></div>` +
     `<button type="button" class="fm-action" onclick="closeReadingMenu();openWelcome()">？ How to use Journaler</button>`;
 }
@@ -2798,6 +2941,12 @@ function importAll(event) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
+      if (/\.(pdf|docx?|txt|png|jpe?g)$/i.test(file.name)) {
+        alert('“' + file.name + '” looks like a reading, not a journal backup.\n\n'
+            + 'To open an article, use “Open article…” instead.\n\n'
+            + 'This button restores the .json file you saved earlier with the ⤓ button.');
+        event.target.value = ''; return;
+      }
       const parsed = JSON.parse(reader.result);
       const data = parsed && parsed.data ? parsed.data : parsed;
       const keys = Object.keys(data || {}).filter(k => k.indexOf('cr_') === 0);
@@ -3202,16 +3351,24 @@ function renderComments() {
     thread.className = 'comment-thread';
     thread.id = 'comment-' + c.id;
     let h = `<div class="comment-card">`;
-    if (c.image) h += `<img class="hl-image" src="${c.image}" alt="figure">`;
+    // Images are no longer embedded: the quoted passage plus the page anchor say
+    // what the note is directed at. Notes saved by older builds still carry one,
+    // and it is simply not drawn.
     if (c.passage) h += `<div class="comment-passage">"${escHtml(truncate(c.passage, 160))}"</div>`;
     // support legacy AI notes (question) and new notes (comment)
     const note = c.comment || c.question || '';
     if (note) h += `<div class="hl-comment">${escHtml(note)}</div>`;
-    h += `<div class="comment-meta"><span></span><button class="comment-delete" title="Remove" onclick="deleteComment(${c.id})">✕</button></div>`;
+    const where = (c.anchor && c.anchor.label) ? `p. ${escHtml(c.anchor.label)}` : '';
+    h += `<div class="comment-meta"><span class="comment-page">${where}</span><button class="comment-delete" title="Remove" onclick="event.stopPropagation();deleteComment(${c.id})">✕</button></div>`;
     h += `</div>`;
     thread.innerHTML = h;
+    if (c.anchor && c.anchor.page) {
+      thread.title = 'Go to this passage (p. ' + c.anchor.label + ')';
+      thread.addEventListener('click', () => jumpToNote(c.id));
+    }
     commentList.appendChild(thread);
   });
+  paintNoteMarks();
 }
 
 function deleteComment(id) {
@@ -3245,7 +3402,19 @@ function nbKey() { return 'cr_notebook_' + currentReadingId(); }
 // student's writing; the app never freezes or locks it.
 const JOURNAL_KEY = 'cr_journal';
 function loadJournal() { try { return JSON.parse(localStorage.getItem(JOURNAL_KEY)) || []; } catch { return []; } }
-function saveJournal(list) { localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); markDirty(); }
+function saveJournal(list) {
+  // Unguarded, a quota error here dropped a dated entry in silence -- and a chat
+  // transcript is far heavier than a margin note, across five weeks of them.
+  try {
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.error('saveJournal', e);
+    alert('That entry could not be saved \u2014 this browser\'s storage for the course is full.\n\n'
+        + 'Use \u2913 to save your work to a file right now, before writing anything else.');
+    return;
+  }
+  markDirty();
+}
 
 // Remember each reading's human title so cross-reading views can label entries
 // whose readingId is just a slug.
@@ -3486,7 +3655,22 @@ Reply with your turn only — no "Todd:" label, no preamble.`;
 let _chatBusy = false;
 function setChatBusy(on) { _chatBusy = on; renderNbChat(); }
 function focusChatInput() { const i = document.getElementById('nbChatText'); if (i) setTimeout(() => i.focus(), 30); }
+// Is there actually a model to talk to? callModel() answers setup problems with a
+// STRING, which is truthy -- so an unconfigured app used to store "No AI provider
+// selected" in the journal as though Todd had said it, and threw the key dialog at a
+// student who was told the reading partner was optional. Ask first instead.
+function aiConfigured() {
+  const p = getProvider();
+  if (!p || p === 'none') return false;
+  if (p === 'local') return !!getLocalModel();
+  return !!getStoredKey(p);
+}
+const AI_OFF_NOTE = 'The reading partner is switched off. Mark the passages that strike you, '
+  + 'then answer this week\'s prompt in Your response below — that is your entry. '
+  + 'If you want to talk it through, turn on a model with the AI button in the header.';
+
 async function startToddChat() {
+  if (!aiConfigured()) { renderNbChat(AI_OFF_NOTE); return; }
   if (!currentWeekPrompt()) { renderNbChat('Pick this week\'s reading prompt above first — that\'s the question we\'ll build your entry toward.'); return; }
   if (!currentHighlights().length) { renderNbChat('Highlight a few passages in the reading first — then I can help you use them to work toward this week\'s prompt.'); return; }
   setChatBusy(true);
@@ -3499,6 +3683,7 @@ async function startToddChat() {
   focusChatInput();
 }
 async function sendToddMessage() {
+  if (!aiConfigured()) { renderNbChat(AI_OFF_NOTE); return; }
   const inp = document.getElementById('nbChatText');
   if (!inp) return;
   const text = inp.value.trim();
@@ -3532,6 +3717,7 @@ async function sendToddMessage() {
 // The closing move the Reading Journal is built around: Todd asks the student to state
 // their take, and that take is surfaced at the top of the printed entry.
 function askForTake() {
+  if (!aiConfigured()) { renderNbChat(AI_OFF_NOTE); return; }
   const cur = getChatEntry();
   if (!cur || !cur.messages || !cur.messages.length) { renderNbChat('Start the conversation first — then, when you’re ready, state your take on this week’s question.'); return; }
   const q = 'Before we stop — in three or four sentences, what’s your take on this week’s question now? Say what the evidence has you thinking, and where it’s still uncertain.';
@@ -3551,7 +3737,52 @@ function patchChatEntry(patch) {
   Object.assign(e, patch); e.edited = Date.now();
   saveJournal(journal);
 }
-function setChatTake(text) { patchChatEntry({ take: text, awaitingTake: false }); }
+function setChatTake(text) { saveResponse(text); }
+
+// Write the student's response onto this week's entry, creating that entry if the
+// chat never ran. A student may read, mark passages, and answer the prompt without
+// saying a word to Todd -- that has to produce a real dated entry, not nothing.
+function saveResponse(text) {
+  const journal = loadJournal();
+  const rid = journalGroupId();
+  const now = Date.now();
+  let e = journal.find(x => x.readingId === rid && x.kind === 'chat');
+  if (!e) {
+    e = { id: 'e' + now + Math.round(Math.random() * 1e4), ts: now, kind: 'chat',
+          readingId: rid, readingTitle: journalGroupTitle(), messages: [], themes: [] };
+    journal.push(e);
+  }
+  e.take = text;
+  e.awaitingTake = false;
+  e.readingTitle = journalGroupTitle();
+  e.edited = now;
+  saveJournal(journal);
+}
+
+let _respTimer = null;
+function onResponseInput() {
+  const ta = document.getElementById('nbRespText');
+  const st = document.getElementById('nbRespState');
+  if (!ta) return;
+  if (st) st.textContent = 'saving…';
+  clearTimeout(_respTimer);
+  // Debounced: this writes to localStorage, and a write per keystroke across a long
+  // response is wasted work on a slow machine.
+  _respTimer = setTimeout(() => {
+    saveResponse(ta.value.trim());
+    if (st) st.textContent = ta.value.trim() ? 'saved' : '';
+    renderNbChat();
+  }, 600);
+}
+function renderNbResponse() {
+  const ta = document.getElementById('nbRespText');
+  if (!ta) return;
+  const entry = getChatEntry();
+  const val = (entry && entry.take) || '';
+  if (document.activeElement !== ta) ta.value = val;
+  const st = document.getElementById('nbRespState');
+  if (st) st.textContent = val ? 'saved' : '';
+}
 function startOverToddChat() {
   if (!getChatEntry()) return;
   if (!confirm('Start this conversation over? Your current entry for this week will be cleared.')) return;
@@ -3564,6 +3795,7 @@ function renderNbChat(note) {
   // Reflect the active focus mode on the toggle.
   const fc = loadChatFocus();
   document.querySelectorAll('#nbFocus button').forEach(b => b.classList.toggle('active', b.dataset.f === fc));
+  renderNbResponse();
   // Highlights pane (read-only reference).
   const hlBox = document.getElementById('nbHlList');
   if (hlBox) {
@@ -3589,6 +3821,8 @@ function renderNbChat(note) {
   }
   if (note) {
     log.innerHTML = `<div class="nb-chat-note">${escHtml(note)}</div>`;
+  } else if (!msgs.length && !aiConfigured()) {
+    log.innerHTML = `<div class="nb-chat-start nb-chat-off"><p>${escHtml(AI_OFF_NOTE)}</p></div>`;
   } else if (!msgs.length) {
     log.innerHTML = `<div class="nb-chat-start"><p>Talk through what you marked. Todd finds 2–3 threads across your highlights and asks you about them, one at a time. The conversation becomes today's entry.</p><button class="nb-send" onclick="startToddChat()"${_chatBusy ? ' disabled' : ''}>${_chatBusy ? 'Todd is reading your highlights…' : '✦ Start the conversation'}</button></div>`;
   } else {
@@ -3851,7 +4085,7 @@ function renderByReading() {
     const title = entries[0].readingTitle || readingTitleFor(rid);
     const rows = entries.map(e => {
       // Chat entries have no .text — flatten the transcript for the snippet.
-      const raw = e.text || (e.kind === 'chat' ? (e.messages || []).map(m => m.text).join(' ') : '') || '';
+      const raw = e.take || e.text || (e.kind === 'chat' ? (e.messages || []).map(m => m.text).join(' ') : '') || '';
       const oneLine = raw.replace(/\s+/g, ' ').trim();
       const snippet = oneLine.slice(0, 90) || 'Conversation with Todd-in-a-Can';
       return `<div class="br-row">
@@ -3898,7 +4132,8 @@ function exportNotebook() {
 
 // Whole-journal, human-readable export — the submission artifact (one PDF).
 function printJournal() {
-  const hasBody = e => (e.text && e.text.trim()) || (e.kind === 'chat' && e.messages && e.messages.length);
+  const hasBody = e => (e.text && e.text.trim()) || (e.take && e.take.trim())
+                    || (e.kind === 'chat' && e.messages && e.messages.length);
   const all = loadJournal().filter(hasBody);
   if (!all.length) { alert(t('alertNotebookEmpty')); return; }
   const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
@@ -3917,6 +4152,11 @@ function printJournal() {
       const rt = readingTitleFor(r);
       arr.filter(c => c.passage || c.comment).forEach(c => out.push({ ...c, _reading: rt }));
     });
+    // Reading order, not the order they happened to be marked in: a submitted entry
+    // should walk the article front to back so it can be read (and scored) against it.
+    // Notes from before anchors existed have no page and settle at the end.
+    const pg = c => (c.anchor && Number(c.anchor.page)) || Infinity;
+    out.sort((x, y) => pg(x) - pg(y));
     return out;
   };
   const groups = {};
@@ -3934,7 +4174,7 @@ function printJournal() {
     const promptHtml = prompt ? `<div class="jr-prompt"><span class="jr-lbl">Prompt</span> ${esc(prompt)}</div>` : '';
     const takeHtml = take ? `<div class="jr-take"><span class="jr-lbl">My take</span> ${esc(take).replace(/\n/g, '<br>')}</div>` : '';
     const hlsHtml = hls.length
-      ? `<div class="jr-hls"><div class="jr-lbl">My highlights</div><ol>${hls.map(c => `<li>${multi && c._reading ? `<span class="jr-src">${esc(c._reading)}:</span> ` : ''}${esc(c.passage || '(a figure)')}${c.comment ? ` <span class="jr-note">\u2014 ${esc(c.comment)}</span>` : ''}</li>`).join('')}</ol></div>`
+      ? `<div class="jr-hls"><div class="jr-lbl">My highlights</div><ol>${hls.map(c => `<li>${multi && c._reading ? `<span class="jr-src">${esc(c._reading)}:</span> ` : ''}${esc(c.passage || '(a figure)')}${(c.anchor && c.anchor.label) ? ` <span class="jr-page">(p.\u00a0${esc(c.anchor.label)})</span>` : ''}${c.comment ? ` <span class="jr-note">\u2014 ${esc(c.comment)}</span>` : ''}</li>`).join('')}</ol></div>`
       : '';
     const pages = entries.map(e =>
       `<article><div class="jr-date">${esc(fmtDate(e.ts))}${(e.edited && e.edited !== e.ts) ? ' \u00b7 edited' : ''}</div><div class="jr-body">${bodyHtml(e)}</div></article>`
@@ -3954,6 +4194,7 @@ function printJournal() {
     .jr-take{font-size:1rem;background:#eef4ee;border-left:3px solid #2f5233;padding:.6rem .8rem;margin:.6rem 0}
     .jr-hls{margin:.6rem 0} .jr-hls ol{margin:.3rem 0 0;padding-left:1.4rem} .jr-hls li{margin:.2rem 0;font-size:.9rem}
     .jr-src{font-weight:bold;color:#555} .jr-note{color:#666;font-style:italic}
+    .jr-page{color:#555;font-size:.82em;white-space:nowrap}
     .jr-convo-lbl{display:block;margin:.8rem 0 .3rem}
     .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
     @media print{.noprint{display:none}}
