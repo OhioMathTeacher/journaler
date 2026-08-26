@@ -252,6 +252,28 @@ body.header-collapsed .bar-restore { display: block; }
   margin-bottom: 1rem;
   animation: slideIn 0.25s ease;
 }
+/* ── Notes beside their passages (Continuous only) ──────────────────────────
+   The margin stops being a list and becomes a surface: each note is placed at
+   the height of the passage it was written about, and the column no longer
+   scrolls on its own -- it rides the article, which is the trade Todd accepted.
+   Only in Continuous, where every page is rendered and every note therefore has
+   a passage on screen to sit beside. */
+/* Flex, not height:100%. The header must keep its place in flow at the top, and the
+   note surface must be exactly the space left under it -- so that a note whose passage
+   has scrolled ABOVE the viewport gets a negative offset and is clipped by the surface
+   instead of floating up over "Your Notes". (height:100% also ran the surface 35px past
+   the bottom of the column, which clipped the last note early.) */
+.comment-column.anchored { overflow-y: hidden; display: flex; flex-direction: column; }
+.comment-column.anchored #commentList { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.comment-column.anchored .comment-thread {
+  position: absolute; left: 0; right: 0; margin-bottom: 0;
+  transition: top 0.14s ease-out;   /* notes slide as the reading moves, never jump */
+  animation: none;                   /* slideIn fights an absolutely placed card */
+}
+/* A note the reader is pointing at lifts out of the stack, the way a marked
+   passage does. Its mark on the page flashes from the same hover. */
+.comment-column.anchored .comment-thread:hover { z-index: 3; }
+.comment-column.anchored .comment-thread.crowded .comment-card { border-left: 2px solid var(--comment-border); }
 @keyframes slideIn {
   from { opacity:0; transform: translateX(8px); }
   to { opacity:1; transform: translateX(0); }
@@ -1960,8 +1982,10 @@ async function renderPdf() {
     // Repaint as pages arrive, so marks appear with the page instead of after the
     // whole document finishes -- and so a zoom re-render never loses them.
     paintNoteMarks();
+    layoutMarginNotes();   // pages arrive one at a time; notes follow each one in
   }
   paintNoteMarks();
+  layoutMarginNotes();
 }
 
 // The strip above the article: where you are, and how much of it you can see. Built
@@ -3324,7 +3348,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 27';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 28';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -3496,6 +3520,7 @@ function setHeaderCollapsed(on) {
   if (pdfFit === 'page' && pdfDoc && customText && customText.isPdf) {
     requestAnimationFrame(() => renderPdf());
   }
+  scheduleMarginLayout();   // the column's top moved even when nothing re-renders
 }
 if (localStorage.getItem('cr_header_collapsed') === '1') document.body.classList.add('header-collapsed');
 // Same reason as focus mode, for the same baked-in scale: a resized window is a
@@ -3506,6 +3531,7 @@ window.addEventListener('resize', () => {
   if (!(pdfDoc && customText && customText.isPdf)) return;
   clearTimeout(_resizeT);
   _resizeT = setTimeout(() => renderPdf(), 220);
+  scheduleMarginLayout();   // the column moved now, not in 220ms
 });
 function renderLangToggles() {
   const row = document.getElementById('langRow');
@@ -3545,6 +3571,10 @@ function handleSelectionPopup(e) {
   const rect = sel.getRangeAt(0).getBoundingClientRect();
   openCapturePopup(text, rect); // works with or without AI (→ Notebook always available)
 }
+// The article scrolls and the notes travel with it. This is the independent scroll
+// Todd traded away: while notes are pinned the margin does not scroll on its own,
+// because "beside the passage" and "wherever I left the list" cannot both be true.
+textCol.addEventListener('scroll', scheduleMarginLayout, { passive: true });
 textCol.addEventListener('mouseup', handleSelectionPopup);
 commentList.addEventListener('mouseup', handleSelectionPopup);
 
@@ -3889,6 +3919,71 @@ function renderComments() {
     commentList.appendChild(thread);
   });
   paintNoteMarks();
+  layoutMarginNotes();
+}
+
+// ── Notes beside their passages ────────────────────────────────────────────
+// Only in Continuous. The paged views keep the plain list: there, most notes have
+// no passage on screen to sit beside, and a margin that empties out as you turn
+// the page hides the work rather than placing it. Google Docs is a continuous
+// scroll, so Continuous is not a subset of the model -- it IS the model.
+function adjacencyOn() {
+  return pdfViewMode === 'continuous' && !!pdfDoc && !!(customText && customText.isPdf)
+      && !stackedLayout();
+}
+
+// Place every note at the height of the passage it was written about, then push
+// overlapping ones down so they stay readable.
+//
+// Positions are computed in VIEWPORT space from the live page element on every
+// pass, rather than once into the column's scroll space. It costs a re-layout per
+// scroll frame, but it means there is no second coordinate system to keep in step
+// with the first -- and the two coordinate systems drifting apart is exactly how
+// this feature goes subtly wrong (a note half a line off, on some pages only).
+let _mnFrame = null;
+function layoutMarginNotes() {
+  const col = document.getElementById('commentColumn');
+  const host = commentList;
+  if (!col || !host) return;
+  if (!adjacencyOn()) {
+    col.classList.remove('anchored');
+    host.querySelectorAll('.comment-thread').forEach(t => {
+      t.style.top = ''; t.style.display = ''; t.classList.remove('crowded');
+    });
+    return;
+  }
+  col.classList.add('anchored');
+  const colRect = host.getBoundingClientRect();
+  const items = [];
+  comments.forEach(c => {
+    const el = document.getElementById('comment-' + c.id);
+    if (!el) return;
+    el.style.display = '';
+    const pg = c.anchor && c.anchor.page ? pageEl(c.anchor.page) : null;
+    if (!pg) { items.push({ el, want: 0, orphan: true }); return; }  // legacy/unanchored: park at the top
+    const r = pg.getBoundingClientRect();
+    if (!r.height) { items.push({ el, want: 0, orphan: true }); return; }
+    items.push({ el, want: (r.top + c.anchor.y * r.height) - colRect.top, orphan: false });
+  });
+  // Reading order down the article, which for anchored notes is also the order the
+  // student would meet the passages -- not the order they happened to write them.
+  items.sort((a, b) => a.want - b.want);
+  const GAP = 10;
+  let prevBottom = -1e9;
+  for (const it of items) {
+    const top = Math.max(it.want, prevBottom + GAP);
+    // Marked as crowded when it could not sit where it belongs: three notes on one
+    // dense paragraph cannot all be adjacent to it, and the rule the reader needs
+    // to know is "pushed down to make room", not "this is where you wrote it".
+    it.el.classList.toggle('crowded', !it.orphan && top > it.want + 2);
+    it.el.style.top = Math.round(top) + 'px';
+    prevBottom = top + it.el.offsetHeight;
+  }
+}
+// Coalesce to one layout per animation frame: scroll fires far faster than paint.
+function scheduleMarginLayout() {
+  if (_mnFrame) return;
+  _mnFrame = requestAnimationFrame(() => { _mnFrame = null; layoutMarginNotes(); });
 }
 
 function deleteComment(id) {
