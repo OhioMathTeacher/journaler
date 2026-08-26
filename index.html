@@ -1021,6 +1021,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <button type="button" class="set-tab on" data-set="ai"  role="tab" onclick="selectSettingsTab('ai')">Reading partner</button>
       <button type="button" class="set-tab"    data-set="cal" role="tab" onclick="selectSettingsTab('cal')">Calendar</button>
       <button type="button" class="set-tab"    data-set="bak" role="tab" onclick="selectSettingsTab('bak')">Backups</button>
+      <button type="button" class="set-tab"    data-set="abt" role="tab" onclick="selectSettingsTab('abt')">About</button>
     </div>
     <div class="set-body" id="setBody"></div>
   </div>
@@ -3077,6 +3078,8 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
+const APP_VERSION = '2026-08-25 · build 21';   // ⚠ bump on every deploy
+const APP_REPO = 'https://github.com/OhioMathTeacher/journaler';
 let _setTab = 'ai';
 function gearAILabel() {
   const p = getProvider();
@@ -3116,6 +3119,23 @@ function renderSettings() {
             wrote then. The journal is dated on purpose \u2014 entries are written week by week, while the
             reading is fresh, not all at the end of Act I.</p>
        </div><button class="set-btn" onclick="closeSettings();openCalendar()">Open calendar</button></div>`;
+  } else if (_setTab === 'abt') {
+    box.innerHTML =
+      `<div class="set-row"><div class="set-row-text">
+         <h3>Journaler</h3>
+         <p>A reading-and-writing app for TCE 318P. Everything you write stays in this
+            browser on this machine \u2014 there is no account and nothing is uploaded.</p>
+       </div><span class="set-status"><span class="off">${esc(APP_VERSION)}</span></span></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Something not working?</h3>
+         <p>Tell Dr. Edwards the version above and what you were doing \u2014 which browser,
+            which article, what you clicked. The version is the fastest way to tell whether
+            you are on the current build.</p>
+       </div><button class="set-btn quiet" onclick="copyDiagnostics(this)">Copy details</button></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Source code</h3>
+         <p>Journaler is open source. Bug reports and suggestions are welcome.</p>
+       </div><a class="set-btn quiet" href="${APP_REPO}" target="_blank" rel="noopener">GitHub</a></div>`;
   } else {
     box.innerHTML =
       `<div class="set-row"><div class="set-row-text">
@@ -3135,6 +3155,42 @@ function renderSettings() {
        </div></div>`;
   }
 }
+// Version, browser, and how full the drawer is -- the three things worth knowing
+// before anyone starts guessing at a support problem.
+function copyDiagnostics(btn) {
+  let used = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      used += (k || '').length + (localStorage.getItem(k) || '').length;
+    }
+  } catch (e) {}
+  const notes = (function () {
+    let n = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('cr_margin_notes_') === 0) {
+        try { n += (JSON.parse(localStorage.getItem(k)) || []).length; } catch (e) {}
+      }
+    }
+    return n;
+  })();
+  let entries = 0;
+  try { entries = (JSON.parse(localStorage.getItem('cr_journal')) || []).length; } catch (e) {}
+  const text = [
+    'Journaler ' + APP_VERSION,
+    'Browser: ' + navigator.userAgent,
+    'Reading partner: ' + (aiConfigured() ? getProvider() : 'off'),
+    'Notes: ' + notes + ' · Entries: ' + entries,
+    'Storage used: ' + Math.round(used / 1024) + ' KB',
+    'Article open: ' + (customText ? (customText.title || 'yes') : 'none')
+  ].join('\n');
+  const done = () => { if (btn) { const t = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = t, 1400); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => alert(text));
+  } else { alert(text); }
+}
+
 function openSettings() {
   selectSettingsTab(_setTab);
   document.getElementById('settingsOverlay').classList.add('open');
