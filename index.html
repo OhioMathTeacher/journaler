@@ -1210,7 +1210,12 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 /* The evidence beside the writing: highlights on the left, Your take on the right.
    Was .nb-chat-panes, from when the chat lived here -- renamed with the swap, because a
    container named for contents it no longer holds is how the next person gets misled. */
-.nb-work-row{display:flex;gap:1.1rem;flex:0 1 auto;min-height:12rem;max-height:52vh;margin-top:.7rem}
+/* GROWS. It was flex:0 1 auto under a 52vh cap, so it sat at its 12rem minimum and the
+   rest of the modal's height went unused -- going fullscreen made the take field wider
+   (561px to 991px) and not one pixel taller. The row now absorbs whatever the compose
+   column has left after the prompt and the chat strip, in both windowed and fullscreen.
+   Safe to grow: the highlights list and the take both scroll inside their panes. */
+.nb-work-row{display:flex;gap:1.1rem;flex:1 1 auto;min-height:12rem;margin-top:.7rem}
 .nb-pane-highlights{flex:0 0 33%;max-width:33%;min-height:0}
 /* The large pane beside the highlights now holds the writing. Same box, new tenant. */
 .nb-pane-response{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
@@ -1239,7 +1244,6 @@ button.cal-cell.selected .cal-dot { background: #fff; }
    a dashed disabled button says that in a language nobody reads -- it just looks broken.
    It is plain text now, so there is exactly one button in this table and it works. */
 .jr-ck-none{flex:0 0 auto;font-size:.78rem;font-style:italic;color:var(--muted);white-space:nowrap}
-.nb-modal-overlay.fullscreen .nb-work-row{max-height:44vh}
 .nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
 .nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
 .nb-noreading p{font-size:.9rem;color:var(--muted);line-height:1.6;margin:0 0 .8rem}
@@ -1247,7 +1251,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 /* Todd-in-a-Can takes the strip the response used to have. The log is capped rather
    than flex-filling: outside the pane row there is no height to fill against, so an
    uncapped log would grow with the conversation and push Save & Close off the modal. */
-.nb-pane-chat{margin-top:.9rem;display:flex;flex-direction:column}
+.nb-pane-chat{margin-top:.9rem;display:flex;flex-direction:column;flex:0 0 auto}
 .nb-pane-chat .nb-chat-log{flex:0 1 auto;max-height:11rem}
 .nb-resp-text{width:100%;box-sizing:border-box;min-height:8rem;resize:vertical;padding:.7rem .8rem;
   border:1px solid rgba(0,0,0,.18);border-radius:7px;background:#fffefa;color:#2a2a24;
@@ -3464,7 +3468,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 32';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 33';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4188,8 +4192,15 @@ function loadNotebook() { return readingEntries(); }
 
 // Notebook view state.
 let nbMode = localStorage.getItem('cr_nbmode') || 'split';  // 'write' | 'split' | 'pages' — layout of the This-reading view
-let nbFullscreen = localStorage.getItem('cr_nbfull');       // edge-to-edge modal; defaults OFF (windowed)
-nbFullscreen = (nbFullscreen === '1');
+// Fullscreen is the DEFAULT now: this window is where the entry gets written, and the
+// windowed version spent a third of the screen showing the page behind it.
+//
+// Reading a NEW key on purpose. Anyone who ever toggled the old one has '0' stored, and
+// a changed default that silently loses to a stale preference looks exactly like a
+// change that did not ship. Everyone gets the new default once; their next toggle is
+// remembered as before.
+let nbFullscreen = localStorage.getItem('cr_nbfull2');
+nbFullscreen = (nbFullscreen === null) ? true : (nbFullscreen === '1');
 let nbSelectedDay = null;    // dayKey string in the Calendar view
 let nbCalStart = null;       // Date (1st of month) — first of the 4-month window
 let nbEditingId = null;      // entry id currently in inline-edit mode
@@ -4678,7 +4689,7 @@ function setNbMode(m) {   // an explicit user click — remember it
   try { localStorage.setItem('cr_nbmode', m); } catch {}
   applyNbMode();
 }
-// Fullscreen modal — edge-to-edge writing room (remembered across sessions).
+// Fullscreen modal — edge-to-edge writing room. On by default, remembered once changed.
 function applyNbFullscreen() {
   const ov = document.getElementById('nbModalOverlay');
   if (ov) ov.classList.toggle('fullscreen', nbFullscreen);
@@ -4687,7 +4698,7 @@ function applyNbFullscreen() {
 }
 function setNbFullscreen(on) {
   nbFullscreen = on;
-  try { localStorage.setItem('cr_nbfull', on ? '1' : '0'); } catch {}
+  try { localStorage.setItem('cr_nbfull2', on ? '1' : '0'); } catch {}
   applyNbFullscreen();
 }
 function closeNotebook() {
