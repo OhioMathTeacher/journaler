@@ -519,7 +519,8 @@ body.header-collapsed .bar-restore { display: block; }
 .nb-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 /* Notebook = write + this reading's pages. Compose (the writing surface) gets most of
    the modal; the saved-pages list sits below it and scrolls. Calendar is its own modal. */
-.nb-compose { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; margin-bottom: 0.75rem; }
+.nb-compose { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; margin-bottom: 0.75rem;
+  overflow-y: auto; /* a long response grows the box; the pane scrolls to follow it */ }
 .nb-pages { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; max-height: 34%; }
 .nb-pages-title { font-family:'DM Sans',sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
 .nb-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
@@ -997,11 +998,11 @@ button.cal-cell.selected .cal-dot { background: #fff; }
           <span class="nb-resp-state" id="nbRespState"></span></div>
         <textarea id="nbRespText" class="nb-resp-text" rows="6"
           placeholder="Answer this week's prompt here. Say what the evidence has you thinking, and where it is still uncertain. Saves as you type."
-          oninput="onResponseInput()"></textarea>
+          oninput="onResponseInput();nbAutoGrow(this)" onblur="flushResponse()"></textarea>
       </div>
     </div>
     <div class="nb-foot">
-      <button class="nb-cancel" onclick="closeNotebook()" data-i18n="close">Close</button>
+      <button class="nb-cancel" onclick="closeNotebook()" title="Your response and notes are already saved as you type — this just closes the window.">Save &amp; Close</button>
     </div>
   </div>
 </div>
@@ -3937,6 +3938,16 @@ function saveResponse(text) {
 }
 
 let _respTimer = null;
+// Write any pending response NOW. Called when the box loses focus and before the
+// modal closes: without it, typing and immediately closing dropped the last keystrokes.
+function flushResponse() {
+  if (!_respTimer) return;
+  clearTimeout(_respTimer); _respTimer = null;
+  const ta = document.getElementById('nbRespText');
+  if (ta) saveResponse(ta.value.trim());
+  const st = document.getElementById('nbRespState');
+  if (st && ta) st.textContent = ta.value.trim() ? 'saved' : '';
+}
 function onResponseInput() {
   const ta = document.getElementById('nbRespText');
   const st = document.getElementById('nbRespState');
@@ -3956,7 +3967,7 @@ function renderNbResponse() {
   if (!ta) return;
   const entry = getChatEntry();
   const val = (entry && entry.take) || '';
-  if (document.activeElement !== ta) ta.value = val;
+  if (document.activeElement !== ta) { ta.value = val; nbAutoGrow(ta); } // size to a restored response
   const st = document.getElementById('nbRespState');
   if (st) st.textContent = val ? 'saved' : '';
 }
@@ -4122,7 +4133,10 @@ function setNbFullscreen(on) {
   try { localStorage.setItem('cr_nbfull', on ? '1' : '0'); } catch {}
   applyNbFullscreen();
 }
-function closeNotebook() { document.getElementById('nbModalOverlay').classList.remove('open'); } // draft is kept
+function closeNotebook() {
+  flushResponse();   // a 600ms debounce must never outlive the window it belongs to
+  document.getElementById('nbModalOverlay').classList.remove('open');
+} // draft is kept
 
 // Delete is ALWAYS available — it's the student's writing; they can tear a page
 // out anytime. A gentle confirm guards against a misclick, nothing more.
