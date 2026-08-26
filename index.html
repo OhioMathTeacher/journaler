@@ -3085,7 +3085,26 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-25 · build 22';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 23';   // ⚠ bump on every deploy
+// A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
+// show the versioning in a small footer the way 284 does." It answers the question
+// every support conversation opens with -- is the code you are looking at the code I
+// shipped -- without anyone having to open Settings. pointer-events:none so it can
+// never sit between a reader and the page.
+(function showBuildTag(){
+  function paint(){
+    try { console.log('%cJournaler (318P): ' + APP_VERSION, 'color:#2f5233;font-weight:bold'); } catch(e){}
+    if(document.getElementById('buildTag')) return;
+    const b = document.createElement('div');
+    b.id = 'buildTag'; b.textContent = APP_VERSION;
+    b.title = 'Journaler build — hover to confirm the loaded code version';
+    b.style.cssText = 'position:fixed;bottom:6px;right:8px;z-index:3000;font:11px/1.4 ui-monospace,monospace;'
+      + 'color:#8a8175;background:rgba(250,247,240,.82);border:1px solid rgba(0,0,0,.08);'
+      + 'padding:2px 7px;border-radius:6px;pointer-events:none';
+    document.body.appendChild(b);
+  }
+  if(document.readyState !== 'loading') paint(); else window.addEventListener('DOMContentLoaded', paint);
+})();
 const APP_REPO = 'https://github.com/OhioMathTeacher/journaler';
 let _setTab = 'ai';
 function gearAILabel() {
@@ -4141,9 +4160,16 @@ function renderChecklist() {
     } else { mark = '\u25cb'; }
     // Resuming needs the article back: switchToReading() reopens it from the local
     // cache. A week whose PDF was never opened here has nothing to reopen.
+    //
+    // ⚠ .replace(/'/g,'%27') IS LOAD-BEARING (2026-08-26). encodeURIComponent leaves
+    // the apostrophe unescaped -- it is an unreserved mark -- and this id is inlined
+    // into onclick="resumeWeek('...')". So McFeetors, "We're in Math Class Playing
+    // Games", closed the JS string early: syntax error, click does nothing, nothing in
+    // the UI to show for it. Every article with an apostrophe in its title was dead and
+    // every other one worked, which is why it read as "the button does nothing".
     const rid = st.ids[0] || '';
     const go = rid
-      ? `<button class="jr-ck-go" onclick="resumeWeek('${escHtml(encodeURIComponent(rid))}')">Open</button>`
+      ? `<button class="jr-ck-go" onclick="resumeWeek('${escHtml(encodeURIComponent(rid).replace(/'/g, '%27'))}')">Open</button>`
       : `<button class="jr-ck-go" disabled title="Open this week's PDF first — the entry is built around the reading.">Open the article first</button>`;
     return `<div class="jr-ck-row"><span class="jr-ck-mark ${cls}">${mark}</span>`
          + `<span class="jr-ck-text"><span class="jr-ck-label">${escHtml(wk.label)}</span><br>`
