@@ -986,7 +986,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   </div>
 </div>
 
-<!-- Writer's Notebook — per-reading, dated, private (Elbow's "without teachers") -->
+<!-- THIS WEEK'S ENTRY — per-reading, dated, private (Elbow's "without teachers").
+     Called a Writer's Notebook once; the course never uses that word, so neither do we. -->
 <div class="nb-modal-overlay" id="nbModalOverlay" onclick="if(event.target===this)closeNotebook()">
   <div class="nb-modal">
     <div class="nb-winctl">
@@ -1001,38 +1002,41 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <div class="nb-pp-text" id="nbPromptText"></div>
         <div class="nb-prompt-pick" id="nbPromptPick" hidden></div>
       </div>
-      <div class="nb-chat-panes">
+      <div class="nb-work-row">
         <div class="nb-pane nb-pane-highlights">
           <div class="nb-pane-title" title="The passages you marked in the reading, with your notes. These are your evidence — they print in your entry and Todd builds the conversation from them.">Your highlights</div>
           <div class="nb-hl-list" id="nbHlList"></div>
         </div>
-        <div class="nb-pane nb-pane-chat">
-          <div class="nb-pane-title" title="An AI reading partner who asks about what you marked and never hands you answers. Optional — your entry is yours with or without it.">Todd-in-a-Can <span class="nb-chat-sub">· today's entry</span>
-            <span class="nb-focus" id="nbFocus" title="Focused = build toward answering the prompt · Exploratory = open, curious wandering"><button type="button" data-f="focused" onclick="setChatFocus('focused')">Focused</button><button type="button" data-f="exploratory" onclick="setChatFocus('exploratory')">Exploratory</button></span>
-            <button class="nb-take-btn" onclick="askForTake()" title="Todd asks you to state your take — the heart of your entry">✓ State my take</button>
-            <button class="nb-startover" onclick="startOverToddChat()" title="Clear this conversation and start again">↺ Start over</button></div>
-          <div class="nb-take" id="nbTake" hidden></div>
-          <div class="nb-chat-log" id="nbChatLog"></div>
-          <div class="nb-chat-input" id="nbChatInput" style="display:none">
-            <textarea id="nbChatText" rows="2" placeholder="Type your reply… (Enter to send · Shift+Enter for a new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendToddMessage()}"></textarea>
-            <button class="nb-send" onclick="sendToddMessage()">Send</button>
-          </div>
+        <!-- YOUR RESPONSE — the answer to the week's prompt, in the student's own words,
+             and the thing the rubric actually scores. It sits in the large pane because
+             it is the work; Todd-in-a-Can moved to the strip below because it is optional.
+             With the AI switched off the old arrangement gave the biggest panel on screen
+             to a message explaining that nothing was there, while the writing happened in
+             a box at the bottom. -->
+        <div class="nb-pane nb-pane-response">
+          <div class="nb-pane-title" title="Your answer to the week's prompt, in your own words. Saves as you type, needs no AI, and prints in your entry as My take — the row the rubric scores as Considered take.">Your take <span class="nb-pane-sub">· your answer to this week's prompt, in your own words</span>
+            <span class="nb-resp-state" id="nbRespState"></span></div>
+          <textarea id="nbRespText" class="nb-resp-text" rows="6"
+            placeholder="Answer this week's prompt here. Say what the evidence has you thinking, and where it is still uncertain. Saves as you type."
+            oninput="onResponseInput()" onblur="flushResponse()"></textarea>
         </div>
       </div>
-      <!-- YOUR RESPONSE — the answer to the week's prompt, written by the student in
-           their own words. Independent of the chat on purpose: talking to Todd is a way
-           to get here, not the only way. This is the field the rubric calls the "take",
-           and it is what the submitted PDF prints under "My take". -->
-      <div class="nb-pane nb-pane-response">
-        <div class="nb-pane-title" title="Your answer to the week's prompt, in your own words. Saves as you type, needs no AI, and prints at the top of your entry.">Your response <span class="nb-chat-sub">· your answer to this week's prompt, in your own words</span>
-          <span class="nb-resp-state" id="nbRespState"></span></div>
-        <textarea id="nbRespText" class="nb-resp-text" rows="6"
-          placeholder="Answer this week's prompt here. Say what the evidence has you thinking, and where it is still uncertain. Saves as you type."
-          oninput="onResponseInput();nbAutoGrow(this)" onblur="flushResponse()"></textarea>
+      <!-- TODD-IN-A-CAN — optional, and now shaped like it: a strip under the writing
+           rather than the room the writing happens in. -->
+      <div class="nb-pane nb-pane-chat">
+        <div class="nb-pane-title" title="An AI reading partner who asks about what you marked and never hands you answers. Optional — your entry is yours with or without it.">Todd-in-a-Can <span class="nb-pane-sub">· today's entry</span>
+          <span class="nb-focus" id="nbFocus" title="Focused = build toward answering the prompt · Exploratory = open, curious wandering"><button type="button" data-f="focused" onclick="setChatFocus('focused')">Focused</button><button type="button" data-f="exploratory" onclick="setChatFocus('exploratory')">Exploratory</button></span>
+          <button class="nb-take-btn" onclick="askForTake()" title="Todd asks you to state your take — the heart of your entry">✓ State my take</button>
+          <button class="nb-startover" onclick="startOverToddChat()" title="Clear this conversation and start again">↺ Start over</button></div>
+        <div class="nb-chat-log" id="nbChatLog"></div>
+        <div class="nb-chat-input" id="nbChatInput" style="display:none">
+          <textarea id="nbChatText" rows="2" placeholder="Type your reply… (Enter to send · Shift+Enter for a new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendToddMessage()}"></textarea>
+          <button class="nb-send" onclick="sendToddMessage()">Send</button>
+        </div>
       </div>
     </div>
     <div class="nb-foot">
-      <button class="nb-cancel" onclick="closeNotebook()" title="Your response and notes are already saved as you type — this just closes the window.">Save &amp; Close</button>
+      <button class="nb-cancel" onclick="closeNotebook()" title="Your take and notes are already saved as you type — this just closes the window.">Save &amp; Close</button>
     </div>
   </div>
 </div>
@@ -1200,13 +1204,18 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <style>
 /* Notebook chat redesign: highlights (reference) beside a Todd-in-a-Can chat that IS the entry. */
 /* Size to content, not to the window. flex:1 stretched this row to fill the modal,
-   so a short conversation left a tall blank band above Your response. The panes are
+   so a short conversation left a tall blank band above Your take. The panes are
    capped instead and scroll internally, which also stops a long list of highlights
    from pushing the response off the bottom. */
-.nb-chat-panes{display:flex;gap:1.1rem;flex:0 1 auto;min-height:12rem;max-height:52vh;margin-top:.7rem}
+/* The evidence beside the writing: highlights on the left, Your take on the right.
+   Was .nb-chat-panes, from when the chat lived here -- renamed with the swap, because a
+   container named for contents it no longer holds is how the next person gets misled. */
+.nb-work-row{display:flex;gap:1.1rem;flex:0 1 auto;min-height:12rem;max-height:52vh;margin-top:.7rem}
 .nb-pane-highlights{flex:0 0 33%;max-width:33%;min-height:0}
-.nb-pane-chat{flex:1;min-width:0;min-height:0}
-@media(max-width:699px){.nb-chat-panes{flex-direction:column}.nb-pane-highlights{flex:0 0 auto;max-width:none;max-height:30vh}}
+/* The large pane beside the highlights now holds the writing. Same box, new tenant. */
+.nb-pane-response{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.nb-pane-response .nb-resp-text{flex:1 1 auto;min-height:0}
+@media(max-width:699px){.nb-work-row{flex-direction:column}.nb-pane-highlights{flex:0 0 auto;max-width:none;max-height:30vh}}
 .nb-hl-list{overflow-y:auto;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:.5rem;padding-right:.3rem}
 .nb-hl{display:flex;gap:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-radius:8px;padding:.5rem .6rem}
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
@@ -1230,12 +1239,16 @@ button.cal-cell.selected .cal-dot { background: #fff; }
    a dashed disabled button says that in a language nobody reads -- it just looks broken.
    It is plain text now, so there is exactly one button in this table and it works. */
 .jr-ck-none{flex:0 0 auto;font-size:.78rem;font-style:italic;color:var(--muted);white-space:nowrap}
-.nb-modal-overlay.fullscreen .nb-chat-panes{max-height:44vh}
+.nb-modal-overlay.fullscreen .nb-work-row{max-height:44vh}
 .nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
 .nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
 .nb-noreading p{font-size:.9rem;color:var(--muted);line-height:1.6;margin:0 0 .8rem}
 .nb-noreading button{margin-top:.5rem}
-.nb-pane-response{margin-top:.9rem}
+/* Todd-in-a-Can takes the strip the response used to have. The log is capped rather
+   than flex-filling: outside the pane row there is no height to fill against, so an
+   uncapped log would grow with the conversation and push Save & Close off the modal. */
+.nb-pane-chat{margin-top:.9rem;display:flex;flex-direction:column}
+.nb-pane-chat .nb-chat-log{flex:0 1 auto;max-height:11rem}
 .nb-resp-text{width:100%;box-sizing:border-box;min-height:8rem;resize:vertical;padding:.7rem .8rem;
   border:1px solid rgba(0,0,0,.18);border-radius:7px;background:#fffefa;color:#2a2a24;
   font-family:Georgia,'Times New Roman',serif;font-size:1rem;line-height:1.55}
@@ -1266,7 +1279,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-take-label{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#2f5233;margin-bottom:.2rem}
 .nb-take-text{font-size:.9rem;line-height:1.5;color:#2a3a2a}
 .nb-pane-chat .nb-pane-title{display:flex;align-items:center;gap:.4rem}
-.nb-chat-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
+.nb-pane-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
 .nb-prompt{margin-top:.6rem}
 /* The prompt is the question the whole entry answers, so it should read as an
    instruction rather than as more of the page. Sans-serif sets it apart from the
@@ -2477,7 +2490,7 @@ const STRINGS = {
     page: 'page', pages: 'pages', across: 'across', readingsW: 'readings',
     brEmpty: 'No pages yet across any reading.',
     confirmDeletePage: 'Delete this page? This can’t be undone.', confirmEmptyPage: 'This page is now empty. Delete it?',
-    alertNotebookEmpty: 'This notebook is empty.', toastFreewrite: 'Added to your freewrite ✎'
+    alertNotebookEmpty: 'There is nothing to assemble yet — write an entry first.', toastFreewrite: 'Added to your freewrite ✎'
   },
   es: {
     yourLanguage: 'Tu idioma', readIn: 'Leer en:',
@@ -3425,7 +3438,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 29';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 31';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4358,7 +4371,7 @@ function aiConfigured() {
   return !!getStoredKey(p);
 }
 const AI_OFF_NOTE = 'The reading partner is switched off. Mark the passages that strike you, '
-  + 'then answer this week\'s prompt in Your response below — that is your entry. '
+  + 'then answer this week\'s prompt in Your take above — that is your entry. '
   + 'Want to try talking it through? Connect a model under \u2699 \u2014 optional, and worth a look.';
 
 async function startToddChat() {
@@ -4481,7 +4494,9 @@ function renderNbResponse() {
   if (!ta) return;
   const entry = getChatEntry();
   const val = (entry && entry.take) || '';
-  if (document.activeElement !== ta) { ta.value = val; nbAutoGrow(ta); } // size to a restored response
+  // No autogrow any more: the response fills its pane, and setting an explicit height
+  // from scrollHeight would collapse the flex fill to the size of whatever is typed.
+  if (document.activeElement !== ta) ta.value = val;
   const st = document.getElementById('nbRespState');
   if (st) st.textContent = val ? 'saved' : '';
 }
@@ -4513,14 +4528,9 @@ function renderNbChat(note) {
   if (!log) return;
   const entry = getChatEntry();
   const msgs = (entry && entry.messages) ? entry.messages : [];
-  // The take (the closing move) sits above the conversation — the heart of the entry.
-  const takeBox = document.getElementById('nbTake');
-  if (takeBox) {
-    if (entry && entry.take) {
-      takeBox.hidden = false;
-      takeBox.innerHTML = `<div class="nb-take-label">Your take</div><div class="nb-take-text">${escHtml(entry.take)}</div>`;
-    } else { takeBox.hidden = true; takeBox.innerHTML = ''; }
-  }
+  // The take used to be mirrored here, read-only, back when this pane was the big one.
+  // It is the editable field directly above now, so echoing it was two boxes labelled
+  // "Your take" showing the same words.
   if (note) {
     log.innerHTML = `<div class="nb-chat-note">${escHtml(note)}</div>`;
   } else if (!msgs.length && !aiConfigured()) {
@@ -4902,10 +4912,13 @@ function exportNotebook() {
     ? e.messages.map(m => (m.role === 'todd' ? 'Todd-in-a-Can' : 'You') + ': ' + m.text).join('\n\n')
     : (e.text || '');
   const body = entries.map(e => `${fmtDate(e.ts)}${(e.edited && e.edited !== e.ts) ? ' (edited)' : ''}\n\n${plain(e)}`).join('\n\n— — —\n\n');
-  const blob = new Blob([`Notebook — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
+  // "Notebook" is not a word this course uses anywhere a student can read -- the app
+  // says This Week's Entry and Journal. It survived here because the export was never
+  // renamed when the vocabulary was, and it is a file the STUDENT ends up holding.
+  const blob = new Blob([`Journal entries — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'notebook-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.txt';
+  a.download = 'journal-entries-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.txt';
   a.click();
   URL.revokeObjectURL(a.href);
 }
