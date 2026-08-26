@@ -361,6 +361,13 @@ body.header-collapsed .bar-restore { display: block; }
 .hl-mini.save { border-color: var(--accent); color: var(--accent); }
 .hl-mini.danger { color: var(--danger, #b4453f); border-color: rgba(180,69,63,.4); }
 .hl-mini:hover { background: rgba(0,0,0,.05); }
+/* The other end of the link. Same colour family as .note-mark.flash on the page, so a
+   click on a band and the card that answers it read as one gesture. */
+.comment-thread.flash .comment-card {
+  background: rgba(255,214,0,.30);
+  border-color: rgba(200,130,0,.65);
+  transition: background .18s ease, border-color .18s ease;
+}
 
 .followup-row {
   display: flex; gap: 0.35rem; margin-top: 0.45rem;
@@ -2190,14 +2197,52 @@ window.addEventListener('mousemove', e => {
   _mq.boxEl.style.width = Math.abs(cx - _mq.startX) + 'px';
   _mq.boxEl.style.height = Math.abs(cy - _mq.startY) + 'px';
 });
-window.addEventListener('mouseup', () => {
+window.addEventListener('mouseup', e => {
   const mq = _mq;
   if (!mq) return;
   _mq = null;
   const r = mq.boxEl.getBoundingClientRect();
-  if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); return; }
+  // A box under 6px was never a drag -- it was a CLICK, and this branch already knew
+  // that. So the other half of the link costs no new plumbing and, more to the point,
+  // no change to .note-mark's pointer-events: the marks stay click-through, and dragging
+  // a new box straight across an old highlight keeps working exactly as it did. That was
+  // the one real obstacle, and it turned out to be avoidable rather than solvable.
+  if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); noteMarkAt(e.clientX, e.clientY); return; }
   handleMarqueeCapture(r, mq.canvas, mq.textLayerDiv);
 });
+
+// Which highlight, if any, is under that point. Smallest wins: marks overlap where a
+// reader marked a phrase inside a longer passage, and the small one is the one they
+// were aiming at.
+function noteMarkAt(x, y) {
+  let best = null, bestArea = Infinity;
+  document.querySelectorAll('.note-mark').forEach(m => {
+    const b = m.getBoundingClientRect();
+    if (x < b.left || x > b.right || y < b.top || y > b.bottom) return;
+    const a = b.width * b.height;
+    if (a < bestArea) { bestArea = a; best = m; }
+  });
+  if (best) revealNote(best.id.replace('mark-', ''));
+}
+
+// Click a highlight, find its note. The reverse of jumpToNote, and deliberately the
+// same rule: move the view only as much as it has to. In Continuous the card is already
+// beside the passage -- the margin cannot scroll there and does not need to -- so it
+// just flashes. In the paged views the margin is a plain scrolling list and note 14 may
+// be well below the fold, so it comes into view first. A pair of links that behaved
+// differently in each direction would be the thing that felt wrong.
+function revealNote(id) {
+  const card = document.getElementById('comment-' + id);
+  if (!card) return;
+  const col = document.getElementById('commentColumn');
+  const cr = card.getBoundingClientRect(), br = col.getBoundingClientRect();
+  const offScreen = cr.bottom < br.top + 2 || cr.top > br.bottom - 2;
+  if (offScreen && !col.classList.contains('anchored')) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  card.classList.add('flash');
+  setTimeout(() => card.classList.remove('flash'), 1400);
+}
 
 function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
   // exact text: spans whose box mostly falls inside the marquee, in reading order.
@@ -3513,7 +3558,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 34';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 35';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
