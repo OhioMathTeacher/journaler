@@ -1141,11 +1141,15 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 
 <style>
 /* Notebook chat redesign: highlights (reference) beside a Todd-in-a-Can chat that IS the entry. */
-.nb-chat-panes{display:flex;gap:1.1rem;flex:1;min-height:0;margin-top:.7rem}
+/* Size to content, not to the window. flex:1 stretched this row to fill the modal,
+   so a short conversation left a tall blank band above Your response. The panes are
+   capped instead and scroll internally, which also stops a long list of highlights
+   from pushing the response off the bottom. */
+.nb-chat-panes{display:flex;gap:1.1rem;flex:0 1 auto;min-height:12rem;max-height:52vh;margin-top:.7rem}
 .nb-pane-highlights{flex:0 0 33%;max-width:33%;min-height:0}
 .nb-pane-chat{flex:1;min-width:0;min-height:0}
 @media(max-width:699px){.nb-chat-panes{flex-direction:column}.nb-pane-highlights{flex:0 0 auto;max-width:none;max-height:30vh}}
-.nb-hl-list{overflow:auto;flex:1;display:flex;flex-direction:column;gap:.5rem;padding-right:.3rem}
+.nb-hl-list{overflow-y:auto;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:.5rem;padding-right:.3rem}
 .nb-hl{display:flex;gap:.5rem;background:#f6f4ea;border:1px solid #e6e2d2;border-radius:8px;padding:.5rem .6rem}
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
 .nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
@@ -1164,6 +1168,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   padding:.25rem .6rem;font:inherit;font-size:.78rem;font-weight:600;color:#2f5233;cursor:pointer}
 .jr-ck-go:hover{background:rgba(47,82,51,.10)}
 .jr-ck-go[disabled]{color:var(--muted);cursor:default;border-style:dashed}
+.nb-modal-overlay.fullscreen .nb-chat-panes{max-height:44vh}
 .nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
 .nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
 .nb-noreading p{font-size:.9rem;color:var(--muted);line-height:1.6;margin:0 0 .8rem}
@@ -1176,7 +1181,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-resp-state{float:right;font-weight:400;font-size:.72rem;color:#8a8272;text-transform:none;letter-spacing:0}
 .nb-hl-note{font-size:.78rem;color:#7a6a4a;margin-top:.25rem;font-style:italic}
 .nb-hl-src{font-size:.68rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a7a3a;margin-bottom:.2rem}
-.nb-chat-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.7rem;padding:.4rem .2rem}
+.nb-chat-log{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.7rem;padding:.4rem .2rem}
 .nb-msg{display:flex;flex-direction:column;gap:.2rem;max-width:92%}
 .nb-msg.from-you{align-self:flex-end;align-items:flex-end}
 .nb-msg-who{font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#9a8a5a}
