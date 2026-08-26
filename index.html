@@ -272,7 +272,12 @@ body.header-collapsed .bar-restore { display: block; }
   border-left: 2px solid var(--accent-light);
   padding-left: 0.55rem; margin-bottom: 0.45rem;
   line-height: 1.35;
-  max-height: 3.2em; overflow: hidden;
+  /* Clamp to WHOLE lines with an ellipsis. max-height:3.2em against line-height:1.35
+     allowed 2.37 lines, so the third was sliced through the middle and read as a
+     rendering fault rather than a trim. */
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3; line-clamp: 3;
+  overflow: hidden;
 }
 .comment-question {
   color: var(--cave-dark); font-weight: 500; margin-bottom: 0.3rem;
