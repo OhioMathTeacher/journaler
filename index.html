@@ -1812,6 +1812,12 @@ async function renderPdf() {
     const viewport = page.getViewport({ scale });
     const pageDiv = document.createElement('div');
     pageDiv.className = 'pdf-page';
+    // ⚠ LOAD-BEARING. The page number lives on the element, never in its DOM position.
+    // paintNoteMarks, jumpToNote and anchorForRect all used to say pages[a.page - 1],
+    // which is true only while every page of the document is rendered. The moment the
+    // reader is shown a subset -- one page, or a two-page spread -- that indexing files
+    // a note under the wrong page and paints its mark on the wrong sheet, silently.
+    pageDiv.dataset.page = n;
     pageDiv.style.width = viewport.width + 'px';
     pageDiv.style.height = viewport.height + 'px';
     const canvas = document.createElement('canvas');
@@ -1970,14 +1976,22 @@ function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
 // Draw a mark for every anchored note on every rendered page. Fractions -> pixels
 // at whatever the current zoom is, so this is also the re-render hook: call it after
 // renderPdf() and after any change to `comments`.
+// The rendered element for a page NUMBER, or null when that page is not on screen --
+// which is a normal state now, not an error: single-page and two-page views render a
+// subset. Callers skip what they cannot find rather than guessing at an index.
+function pageEl(n) {
+  return document.querySelector('.pdf-page[data-page="' + n + '"]');
+}
+
 function paintNoteMarks() {
   const pages = document.querySelectorAll('.pdf-page');
   if (!pages.length) return;
   pages.forEach(p => p.querySelectorAll('.note-mark').forEach(m => m.remove()));
   comments.forEach(c => {
     const a = c.anchor;
-    if (!a || !a.page || a.page > pages.length) return;
-    const pg = pages[a.page - 1];
+    if (!a || !a.page) return;
+    const pg = pageEl(a.page);
+    if (!pg) return;   // that page is not currently rendered
     const mark = document.createElement('div');
     mark.className = 'note-mark';
     mark.id = 'mark-' + c.id;
@@ -1994,7 +2008,7 @@ function paintNoteMarks() {
 function jumpToNote(id) {
   const c = comments.find(x => x.id === id);
   if (!c || !c.anchor || !c.anchor.page) return;
-  const pg = document.querySelectorAll('.pdf-page')[c.anchor.page - 1];
+  const pg = pageEl(c.anchor.page);
   if (!pg) return;
   const mark = document.getElementById('mark-' + id);
   (mark || pg).scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2025,8 +2039,11 @@ function anchorForRect(rect) {
     const clamp = v => Math.max(0, Math.min(1, v));
     const x = clamp((rect.left - p.left) / p.width);
     const y = clamp((rect.top - p.top) / p.height);
+    // The page this box was actually drawn on -- read off the element, not inferred
+    // from its position in the list, which in a spread would be the left-hand page.
+    const num = +pages[i].dataset.page || (i + 1);
     return {
-      page: i + 1, label: pageLabelFor(i + 1),
+      page: num, label: pageLabelFor(num),
       x, y,
       w: clamp(rect.width / p.width) || 0.01,
       h: clamp(rect.height / p.height) || 0.01
@@ -3089,7 +3106,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 24';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 25';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
