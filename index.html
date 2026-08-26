@@ -317,6 +317,51 @@ body.header-collapsed .bar-restore { display: block; }
 }
 .comment-delete:hover { opacity: 1; color: var(--danger); }
 
+/* ── Editable notes, ported from journaler-284 ──────────────────────────────
+   The quote clamps to three lines and opens on a click; navigation moved to its own
+   Go-to button, because a card you edit cannot also be a card that jumps when clicked. */
+.comment-thread.open .comment-passage { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.comment-passage { cursor: pointer; }
+.comment-passage.figure { font-style: italic; opacity: .8; cursor: default; }
+.hl-note {
+  font-family: 'Crimson Pro', serif; font-size: 0.85rem; line-height: 1.45;
+  color: var(--ink); cursor: pointer; border-radius: 5px;
+  padding: 0.28rem 0.35rem; margin: 0 0 0.3rem;
+}
+.hl-note:hover { background: rgba(0,0,0,.045); }
+.hl-note.pending { background: rgba(0,0,0,.045); }
+/* The timestamp is the point of a pass, not decoration: it is what makes a note read
+   as thinking that moved rather than one undated blob. */
+.hl-stamp {
+  display: block; margin-top: 0.18rem; font-family: 'DM Sans', sans-serif;
+  font-size: 0.62rem; letter-spacing: .02em; color: var(--muted);
+}
+.hl-row { display: flex; gap: 0.3rem; margin-top: 0.45rem; flex-wrap: wrap; }
+.hl-goto, .hl-add, .hl-trim, .hl-del {
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 600;
+  border: 1px solid var(--comment-border); background: none; color: var(--muted);
+  border-radius: 5px; padding: 0.15rem 0.4rem; cursor: pointer;
+}
+.hl-goto { font-variant-numeric: tabular-nums; }
+.hl-goto:hover, .hl-add:hover, .hl-trim:hover { background: rgba(0,0,0,.05); color: var(--ink); }
+.hl-del { margin-left: auto; }
+.hl-del:hover { color: var(--danger); border-color: var(--danger); }
+.hl-edit {
+  width: 100%; box-sizing: border-box; min-height: 4.5rem;
+  font-family: 'Crimson Pro', serif; font-size: 0.9rem; line-height: 1.5;
+  padding: 0.45rem 0.5rem; border: 1px solid var(--accent); border-radius: 6px;
+  background: #fff; color: var(--ink); resize: vertical;
+}
+.hl-editrow { display: flex; gap: 6px; margin-top: 0.35rem; flex-wrap: wrap; }
+.hl-mini {
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 600;
+  border: 1px solid var(--comment-border); background: none; color: var(--muted);
+  border-radius: 5px; padding: 3px 8px; cursor: pointer;
+}
+.hl-mini.save { border-color: var(--accent); color: var(--accent); }
+.hl-mini.danger { color: var(--danger, #b4453f); border-color: rgba(180,69,63,.4); }
+.hl-mini:hover { background: rgba(0,0,0,.05); }
+
 .followup-row {
   display: flex; gap: 0.35rem; margin-top: 0.45rem;
   padding-top: 0.45rem; border-top: 1px solid var(--comment-border);
@@ -1156,7 +1201,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .note-mark{position:absolute;z-index:1;background:rgba(255,214,0,.38);border-radius:2px;pointer-events:none;
              box-shadow:0 0 0 1px rgba(214,168,0,.35) inset;transition:background .25s,box-shadow .25s}
   .note-mark.flash{background:rgba(255,170,0,.72);box-shadow:0 0 0 2px rgba(200,130,0,.85) inset}
-  .comment-card{cursor:pointer}
+  .comment-card{cursor:default}   /* Go to p. N is the click target now, not the card */
   .comment-card:hover{box-shadow:0 1px 8px rgba(0,0,0,.13)}
   #capturePopup{z-index:1500}
   #captureModeBtn.has-custom{background:#3a5a40;color:#fff}
@@ -3468,7 +3513,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 33';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 34';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4007,6 +4052,67 @@ async function callModel(prompt) {
   return 'Unknown provider.';
 }
 
+// ── A note is not frozen ───────────────────────────────────────────────────
+// Ported from journaler-284, which learned it first: a mark made while reading is a
+// first thought, and the second thought is the one worth grading. So a note is a list
+// of DATED passes rather than one string. Adding a pass keeps the old one -- what you
+// thought later beside what you thought first is exactly the evidence a thread reading
+// needs, and the timestamps are what make it legible as thinking over time.
+//
+// `comment` stays in sync with the joined passes, because everything downstream reads
+// it: the submitted journal, the export, and Todd-in-a-Can's prompt. None of them
+// should have to know that passes exist.
+function notePasses(c) {
+  if (Array.isArray(c.passes) && c.passes.length) return c.passes;
+  const t = (c.comment || c.question || '').trim();
+  return t ? [{ text: t, ts: c.ts || Date.now() }] : [];
+}
+function writePasses(c, passes) {
+  c.passes = passes;
+  c.comment = passes.map(p => p.text).join('\n\n');
+}
+function updateComment(id, mutate) {
+  const c = comments.find(x => x.id === id);
+  if (!c) return;
+  mutate(c);
+  c.edited = Date.now();
+  saveNotesToStorage();
+  renderComments();
+}
+function passStamp(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric' })
+    + ' · ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+}
+
+// One editor for everything editable on a card. Escape abandons, Save keeps, and an
+// emptied pass is deleted -- the same three moves wherever you are on the card.
+function editInPlace(host, value, onSave, opts) {
+  opts = opts || {};
+  if (host.querySelector('textarea')) return;
+  const prev = host.innerHTML;
+  host.innerHTML = `<textarea class="hl-edit">${escHtml(value)}</textarea>`
+    + `<div class="hl-editrow"><button class="hl-mini save">Save</button>`
+    + `<button class="hl-mini">Cancel</button>`
+    + (opts.canDelete ? `<button class="hl-mini danger">Delete this line</button>` : '')
+    + `</div>`;
+  const ta = host.querySelector('textarea');
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  // The card just got taller, and in Continuous the margin is a positioned surface.
+  layoutMarginNotes();
+  const btns = host.querySelectorAll('.hl-mini');
+  let done = false;
+  const finish = fn => { if (done) return; done = true; fn(); layoutMarginNotes(); };
+  btns[0].onclick = () => finish(() => onSave(ta.value.trim()));
+  btns[1].onclick = () => finish(() => { host.innerHTML = prev; });
+  if (opts.canDelete) btns[2].onclick = () => finish(() => onSave(''));
+  ta.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); finish(() => { host.innerHTML = prev; }); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); finish(() => onSave(ta.value.trim())); }
+  });
+}
+
 function renderComments() {
   const threads = commentList.querySelectorAll('.comment-thread');
   threads.forEach(t => t.remove());
@@ -4020,23 +4126,72 @@ function renderComments() {
     const thread = document.createElement('div');
     thread.className = 'comment-thread';
     thread.id = 'comment-' + c.id;
-    let h = `<div class="comment-card">`;
-    // Images are no longer embedded: the quoted passage plus the page anchor say
-    // what the note is directed at. Notes saved by older builds still carry one,
-    // and it is simply not drawn.
-    if (c.passage) h += `<div class="comment-passage">"${escHtml(truncate(c.passage, 160))}"</div>`;
-    // support legacy AI notes (question) and new notes (comment)
-    const note = c.comment || c.question || '';
-    if (note) h += `<div class="hl-comment">${escHtml(note)}</div>`;
-    const where = (c.anchor && c.anchor.label) ? `p. ${escHtml(c.anchor.label)}` : '';
-    h += `<div class="comment-meta"><span class="comment-page">${where}</span><button class="comment-delete" title="Remove" onclick="event.stopPropagation();deleteComment(${c.id})">✕</button></div>`;
-    h += `</div>`;
-    thread.innerHTML = h;
-    if (c.anchor && c.anchor.page) {
-      thread.title = 'Go to this passage (p. ' + c.anchor.label + ')';
-      thread.addEventListener('click', () => jumpToNote(c.id));
-    }
+    const where = (c.anchor && c.anchor.label) ? c.anchor.label : '';
+    // The WHOLE passage is in the DOM -- selectable and copyable. CSS clamps it; a
+    // click opens it out, which is why navigation needed a button of its own.
+    const quote = c.passage
+      ? `<div class="comment-passage" title="Click to see all of it. Use ✎ Trim if the box grabbed more than you meant.">${escHtml(c.passage)}</div>`
+      : `<div class="comment-passage figure">(a figure — no text in that box)</div>`;
+    const notes = notePasses(c).map((pz, i) =>
+      `<div class="hl-note" data-pass="${i}" data-c="${c.id}" title="Click to rewrite this line">${escHtml(pz.text)}`
+      + `<span class="hl-stamp">${escHtml(passStamp(pz.ts))}${pz.edited ? ' · edited' : ''}</span></div>`).join('');
+    thread.innerHTML = `<div class="comment-card">${quote}${notes}`
+      + `<div class="hl-row">`
+      + (where ? `<button class="hl-goto" data-c="${c.id}" title="Scroll back to this passage and flash it">Go to p. ${escHtml(where)}</button>` : '')
+      + `<button class="hl-add" data-c="${c.id}" title="Add a dated line to this note. The old one stays — what you thought later beside what you thought first.">＋ Add</button>`
+      + `<button class="hl-trim" data-c="${c.id}" title="Edit the quoted passage — for a box that grabbed a line more than you meant. The mark on the page does not move.">✎ Trim</button>`
+      + `<button class="hl-del" data-c="${c.id}" title="Remove this note">Remove</button>`
+      + `</div></div>`;
     commentList.appendChild(thread);
+  });
+
+  // Navigation is the Go-to button now, NOT the whole card. Clicking the card had to
+  // stop meaning "jump" the moment the card became something you edit.
+  commentList.querySelectorAll('.hl-goto').forEach(b => b.onclick = e => { e.stopPropagation(); jumpToNote(+b.dataset.c); });
+  commentList.querySelectorAll('.hl-del').forEach(b => b.onclick = e => { e.stopPropagation(); deleteComment(+b.dataset.c); });
+  commentList.querySelectorAll('.comment-passage').forEach(q => q.onclick = e => {
+    if (q.querySelector('textarea') || e.target.closest('.hl-mini')) return;   // being trimmed
+    q.closest('.comment-thread').classList.toggle('open');
+    layoutMarginNotes();
+  });
+  // A pass: click it to rewrite it, empty it to drop that line.
+  commentList.querySelectorAll('.hl-note').forEach(n => n.onclick = e => {
+    if (e.target.closest('.hl-mini')) return;
+    const id = +n.dataset.c, idx = +n.dataset.pass;
+    const c = comments.find(x => x.id === id); if (!c) return;
+    const cur = notePasses(c)[idx]; if (!cur) return;
+    editInPlace(n, cur.text, text => {
+      updateComment(id, cc => {
+        const ps = notePasses(cc).slice();
+        if (!text) ps.splice(idx, 1); else ps[idx] = { text, ts: cur.ts, edited: Date.now() };
+        writePasses(cc, ps);
+      });
+    }, { canDelete: true });
+  });
+  // ＋ Add — a NEW dated line. The old one stays; that is the whole point.
+  commentList.querySelectorAll('.hl-add').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const card = b.closest('.comment-card');
+    const host = document.createElement('div');
+    host.className = 'hl-note pending';
+    card.querySelector('.hl-row').before(host);
+    editInPlace(host, '', text => {
+      if (!text) { host.remove(); layoutMarginNotes(); return; }
+      updateComment(+b.dataset.c, cc => writePasses(cc, notePasses(cc).concat([{ text, ts: Date.now() }])));
+    });
+  });
+  // ✎ Trim — the quoted passage, for a box that grabbed too much. The BAND on the page
+  // is untouched: it records where you looked, and its fractions were measured against
+  // the render, not against this string.
+  commentList.querySelectorAll('.hl-trim').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const id = +b.dataset.c;
+    const c = comments.find(x => x.id === id); if (!c) return;
+    const q = b.closest('.comment-card').querySelector('.comment-passage');
+    editInPlace(q, c.passage || '', text => {
+      if (!text) { renderComments(); return; }        // never blank a passage away
+      updateComment(id, cc => { cc.passage = text; });
+    });
   });
   paintNoteMarks();
   layoutMarginNotes();
