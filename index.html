@@ -1083,6 +1083,33 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .pdf-page{position:relative;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);border-radius:2px}
   .pdf-page canvas{display:block;border-radius:2px}
   .pdf-loading{padding:3.5rem 1rem;text-align:center;color:#8a8a7a;font-family:'DM Sans',system-ui,sans-serif}
+  /* The view strip. Sticky rather than fixed, so it belongs to the article it
+     controls and survives focus mode, where the header it would otherwise live in
+     is gone. renderPdf rebuilds it, because renderPdf owns textCol.innerHTML. */
+  .pdf-viewbar{position:sticky;top:-1.6rem;z-index:5;display:flex;align-items:center;gap:.6rem;
+    margin:-1.6rem -1.6rem 1rem;padding:.5rem 1rem;background:var(--bg,#faf7f0);
+    border-bottom:1px solid var(--comment-border);font-family:'DM Sans',system-ui,sans-serif}
+  .pdf-viewbar .vb-spacer{flex:1}
+  .pdfnav-btn,.vbtn{font-family:inherit;font-size:.78rem;font-weight:600;border:1px solid var(--comment-border);
+    background:none;color:#5a5347;border-radius:5px;padding:.25rem .6rem;cursor:pointer}
+  .pdfnav-btn:hover:not(:disabled),.vbtn:hover{background:rgba(122,59,16,.08)}
+  .pdfnav-btn:disabled{opacity:.35;cursor:default}
+  .pdfnav-lbl{font-size:.78rem;color:#8a8175;min-width:11ch;text-align:center}
+  .viewseg{display:inline-flex}
+  .viewseg .vbtn{border-radius:0;margin-left:-1px}
+  .viewseg .vbtn:first-child{border-radius:5px 0 0 5px;margin-left:0}
+  .viewseg .vbtn:last-child{border-radius:0 5px 5px 0}
+  .vbtn.on{background:var(--accent,#3a5a40);border-color:var(--accent,#3a5a40);color:#fff}
+  /* Two pages side by side. .pdf-doc is a centred column by default; a spread turns it
+     into a row so a landscape monitor is used instead of stranding one portrait page in
+     the middle of it. Below 900px it falls back to the column, where two pages would be
+     too narrow to read. */
+  .pdf-doc.two-up{flex-direction:row;align-items:flex-start;justify-content:center;gap:18px;flex-wrap:nowrap}
+  /* Belt and braces for the ~220ms between a resize and the re-render that re-measures.
+     860px is the app's own desktop/phone breakpoint, and roomForSpread() uses the same
+     number -- if these two disagree, the layout stacks while the arithmetic goes on
+     halving, and you get two stamp-sized pages adrift in a full-width column. */
+  @media (max-width:860px){ .pdf-doc.two-up{flex-direction:column;align-items:center} }
   .textLayer{position:absolute;inset:0;overflow:clip;opacity:1;line-height:1;text-align:initial;-webkit-text-size-adjust:none;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;caret-color:CanvasText;z-index:2}
   .textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0}
   .textLayer span.markedContent{top:0;height:0}
@@ -1313,6 +1340,48 @@ let captureImage = ''; // cropped region, kept only for "↓ Save figure" — ne
 let captureAnchor = null; // {page, label, x, y, w, h} — page fractions, so zoom-independent
 let pdfPageLabels = null; // the article's printed page numbers, e.g. ['534','535',…]
 let pdfZoom = 0.7; // open a few clicks below fit-to-width (roomier page); zoom buttons adjust
+// ── How much of the article is on screen at once ──────────────────────────
+// 'continuous' is the original behaviour and still the default: every page, scroll it.
+// 'single' shows pdfSpread pages (1 or 2) starting at pdfPageNum. Two-up is not a third
+// mode -- it is the single-page view widened -- so the button cycles rather than the bar
+// growing a control.
+let pdfViewMode = localStorage.getItem('cr_pdf_view_mode') || 'continuous';
+let pdfSpread   = (localStorage.getItem('cr_pdf_spread') === '2') ? 2 : 1;
+let pdfPageNum  = 1;
+// 'width' scales by pdfZoom against the column (what A- / A+ drive). 'page' fits the
+// whole sheet -- or the whole spread -- inside the box, which is what makes a paged view
+// feel like a book rather than a tall thing you still have to scroll.
+let pdfFit = localStorage.getItem('cr_pdf_fit') || 'width';
+
+// Is there room for a spread? Measured on the COLUMN, not the window -- the margin pane
+// takes 360px, so a 1000px window leaves ~540px here and half of that is a thumbnail.
+// The 860px floor is the app's breakpoint for the stacked phone layout, below which the
+// column gets WIDER (the margin moves underneath) while the screen does not.
+// 860px is the app's own breakpoint for the stacked layout, where the margin pane moves
+// below the article and the whole body scrolls. One number, used in three places -- here,
+// in the scale arithmetic, and in the .two-up media query -- because when they disagree
+// the layout and the arithmetic each do something sensible and the pair looks broken.
+function stackedLayout() { return window.innerWidth <= 860; }
+function roomForSpread() {
+  const t = document.getElementById('textColumn');
+  const avail = t ? Math.max(320, t.clientWidth - 96) : 0;
+  return avail >= 700 && !stackedLayout();
+}
+// What the reader ASKED for is pdfSpread; what the window can actually show is this.
+// Everything that renders or turns pages uses the effective number, so a spread that
+// will not fit degrades to a single page rather than to two pages stacked -- and Next
+// then steps by one, instead of skipping the page it never showed.
+function effSpread() { return (pdfSpread === 2 && roomForSpread()) ? 2 : 1; }
+
+// The pages on screen right now; null means "all of them", which callers read as
+// "do not filter".
+function visiblePages() {
+  if (pdfViewMode !== 'single') return null;
+  const total = pdfDoc ? pdfDoc.numPages : pdfPageNum;
+  const out = [];
+  for (let i = 0; i < effSpread(); i++) { const n = pdfPageNum + i; if (n >= 1 && n <= total) out.push(n); }
+  return out;
+}
 
 function setLoadFileHint(message, tone = '') {
   const hint = document.getElementById('loadFileHint');
@@ -1798,17 +1867,48 @@ async function renderPdf() {
   try { pdfPageLabels = await doc.getPageLabels(); }
   catch (e) { pdfPageLabels = null; console.warn('page labels', e); }
   const token = ++pdfRenderToken;
+  // Keep pdfPageNum inside the document -- a shorter article opened after a longer one
+  // would otherwise start on a page that does not exist.
+  if (pdfPageNum > doc.numPages) pdfPageNum = 1;
+  if (pdfPageNum < 1) pdfPageNum = 1;
   textCol.innerHTML = '<div class="pdf-loading">Rendering the article…</div>';
+  const bar = buildViewBar(doc);
   const wrap = document.createElement('div');
   wrap.className = 'pdf-doc';
+  const single = pdfViewMode === 'single';
+  const pages = single ? visiblePages() : Array.from({ length: doc.numPages }, (_, i) => i + 1);
   const avail = Math.max(320, textCol.clientWidth - 96);
+  // Two portrait pages side by side get half the width each, less the gap between them.
+  // visiblePages() already refused to hand back two if there is no room for two, so this
+  // is simply "did we get a spread", and the arithmetic cannot disagree with the layout.
+  const twoUp = single && pages.length > 1;
+  if (twoUp) wrap.classList.add('two-up');
+  const colW = twoUp ? Math.floor((avail - 18) / 2) : avail;
+  // Fit-page needs the height the column can actually show. Measured from the VIEWPORT
+  // down, not as textCol.clientHeight: below 860px the column has max-height:none and is
+  // sized BY its content, and we have just blanked it for the loading message -- so it
+  // reports the height of one line of text, fit-page hits its 0.4 scale floor, and the
+  // reader gets a thumbnail. The 80 is the view strip plus the column's own padding.
+  const top = Math.max(0, textCol.getBoundingClientRect().top);
+  const availH = Math.max(240, window.innerHeight - top - 80);
   const ratio = window.devicePixelRatio || 1;
   let first = true;
-  for (let n = 1; n <= doc.numPages; n++) {
+  for (const n of pages) {
     if (token !== pdfRenderToken) return; // a newer render superseded this one
     const page = await doc.getPage(n);
     const unit = page.getViewport({ scale: 1 });
-    const scale = Math.max(0.4, Math.min(3.6, (avail / unit.width) * pdfZoom));
+    // Fit-page means "the whole sheet, no scrolling" -- which is only a kindness where
+    // there is height to fit into. In the stacked layout the header alone can take half
+    // the screen, and honouring the height constraint there produced a correctly-fitted
+    // thumbnail: 284px of page under 453px of chrome. The body scrolls in that layout
+    // anyway, so Fit page fits the WIDTH there and lets the reader scroll a readable page.
+    const raw = (pdfFit === 'page')
+      ? (stackedLayout() ? colW / unit.width
+                         : Math.min(colW / unit.width, availH / unit.height))
+      : (colW / unit.width) * pdfZoom;
+    // Floor keeps a page legible; ceiling keeps one canvas from eating hundreds of MB,
+    // since canvas bytes rise with the SQUARE of scale, times devicePixelRatio again.
+    const scale = Math.max(0.4, Math.min(3.6, raw));
     const viewport = page.getViewport({ scale });
     const pageDiv = document.createElement('div');
     pageDiv.className = 'pdf-page';
@@ -1837,7 +1937,7 @@ async function renderPdf() {
     pageDiv.appendChild(overlay);
     attachMarquee(overlay, canvas, tlDiv);
     wrap.appendChild(pageDiv);
-    if (first) { textCol.innerHTML = ''; textCol.appendChild(wrap); first = false; }
+    if (first) { textCol.innerHTML = ''; if (bar) textCol.appendChild(bar); textCol.appendChild(wrap); first = false; }
     await page.render({
       canvasContext: canvas.getContext('2d'), viewport,
       transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null
@@ -1857,6 +1957,85 @@ async function renderPdf() {
   paintNoteMarks();
 }
 
+// The strip above the article: where you are, and how much of it you can see. Built
+// here rather than in the header because renderPdf owns textCol.innerHTML and would
+// wipe anything placed inside it -- and because in focus mode the header is gone,
+// which is exactly when a reader most wants Next.
+function buildViewBar(doc) {
+  const bar = document.createElement('div');
+  bar.className = 'pdf-viewbar';
+  const single = pdfViewMode === 'single';
+  let nav = '';
+  if (single) {
+    const vis = visiblePages();
+    const last = vis.length ? vis[vis.length - 1] : pdfPageNum;
+    const shown = last > pdfPageNum
+      ? 'Pages ' + pageLabelFor(pdfPageNum) + '–' + pageLabelFor(last)
+      : 'Page ' + pageLabelFor(pdfPageNum);
+    nav = '<button class="pdfnav-btn" id="pgPrev" ' + (pdfPageNum <= 1 ? 'disabled' : '') +
+            ' title="The page before this one">‹ Prev</button>' +
+          '<span class="pdfnav-lbl">' + escHtml(shown) + ' of ' + escHtml(pageLabelFor(doc.numPages)) + '</span>' +
+          '<button class="pdfnav-btn" id="pgNext" ' + (last >= doc.numPages ? 'disabled' : '') +
+            ' title="The next page">Next ›</button>';
+  } else {
+    nav = '<span class="pdfnav-lbl">' + doc.numPages + ' pages · scroll to read</span>';
+  }
+  bar.innerHTML = nav + '<span class="vb-spacer"></span>' +
+    '<span class="viewseg">' +
+      '<button class="vbtn ' + (single ? 'on' : '') + '" id="vmSingle" title="' +
+        (single && pdfSpread === 2 && !roomForSpread()
+          ? 'Two pages is on, but this window is too narrow for a spread — showing one page. Widen the window to see both.'
+          : 'One page at a time. Click again to read two pages side by side — useful on a wide screen.') +
+        '">' + (single && pdfSpread === 2 ? 'Two pages' : 'Single page') + '</button>' +
+      '<button class="vbtn ' + (single ? '' : 'on') + '" id="vmCont" title="The whole article in one scroll — the original view, and the one that shows every note at once.">Continuous</button>' +
+    '</span>' +
+    '<button class="vbtn ' + (pdfFit === 'page' ? 'on' : '') + '" id="vbFit" title="Fit the whole page on screen. Turn this off to size the page with A− and A+ instead.">Fit page</button>';
+  bar.querySelector('#pgPrev') && (bar.querySelector('#pgPrev').onclick = () => turnPage(-1));
+  bar.querySelector('#pgNext') && (bar.querySelector('#pgNext').onclick = () => turnPage(1));
+  bar.querySelector('#vmSingle').onclick = () => {
+    // Already paged? The button cycles 1 ⇄ 2 pages rather than the bar growing a
+    // control nobody asked for. Coming from continuous, it keeps the spread you last read in.
+    if (pdfViewMode === 'single') { pdfSpread = pdfSpread === 2 ? 1 : 2; }
+    else {
+      pdfViewMode = 'single';
+      // A paged view that still needs scrolling is not a paged view. Fit the sheet the
+      // first time the reader asks for one; the Fit page button undoes it.
+      if (!localStorage.getItem('cr_pdf_fit')) pdfFit = 'page';
+    }
+    savePdfView(); renderPdf();
+  };
+  bar.querySelector('#vmCont').onclick = () => { pdfViewMode = 'continuous'; savePdfView(); renderPdf(); };
+  bar.querySelector('#vbFit').onclick = () => { pdfFit = (pdfFit === 'page') ? 'width' : 'page'; savePdfView(); renderPdf(); };
+  return bar;
+}
+function savePdfView() {
+  try {
+    localStorage.setItem('cr_pdf_view_mode', pdfViewMode);
+    localStorage.setItem('cr_pdf_spread', String(pdfSpread));
+    localStorage.setItem('cr_pdf_fit', pdfFit);
+  } catch {}
+}
+// Step BY the spread. Turning one page in a two-page view would re-show the page the
+// reader just finished on every single click.
+function turnPage(dir) {
+  if (!pdfDoc) return;
+  const step = effSpread();
+  const next = pdfPageNum + dir * step;
+  if (next < 1 || next > pdfDoc.numPages) return;
+  pdfPageNum = next;
+  renderPdf();
+}
+// Bring a page into view whatever the current mode is, so a click on a margin note
+// always lands. Returns true if the view had to move (and is therefore re-rendering).
+function showPage(n) {
+  if (pdfViewMode !== 'single') return false;
+  const vis = visiblePages();
+  if (vis && vis.includes(n)) return false;
+  pdfPageNum = n;
+  renderPdf();
+  return true;
+}
+
 // ── Marquee capture: drag a box on the page to grab EXACTLY the text inside it
 // (from the rendered text layer — no OCR, no cross-column bleed) and a cropped
 // image of the region (for figures). Reusable anywhere PDFs are read.
@@ -1872,6 +2051,9 @@ function setCaptureMode(m) {
 // lines and jumps columns. setCaptureMode stays; the overlay still needs pointer-events.
 function zoomPdf(dir) {
   const step = 1.2;
+  // Asking for a size is a statement that you do not want the page fitted; otherwise
+  // A+ would appear to do nothing at all while Fit page was on.
+  if (pdfFit === 'page') { pdfFit = 'width'; savePdfView(); }
   pdfZoom = Math.max(0.6, Math.min(3.2, dir > 0 ? pdfZoom * step : pdfZoom / step));
   if (pdfDoc && customText && customText.isPdf) renderPdf();
 }
@@ -2008,6 +2190,10 @@ function paintNoteMarks() {
 function jumpToNote(id) {
   const c = comments.find(x => x.id === id);
   if (!c || !c.anchor || !c.anchor.page) return;
+  // In a paged view the passage is usually not on screen -- that is the normal case,
+  // not a failure. Turn to its page and finish the jump after the render, or the click
+  // would do nothing, which reads as a broken note.
+  if (showPage(c.anchor.page)) { setTimeout(() => jumpToNote(id), 260); return; }
   const pg = pageEl(c.anchor.page);
   if (!pg) return;
   const mark = document.getElementById('mark-' + id);
@@ -3106,7 +3292,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 25';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 26';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -3271,8 +3457,24 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReading
 function setHeaderCollapsed(on) {
   document.body.classList.toggle('header-collapsed', on);
   try { localStorage.setItem('cr_header_collapsed', on ? '1' : '0'); } catch {}
+  // Scale is baked into the canvas at render time. Hiding the header gives the column
+  // ~120px more height, which fit-page is measured against -- so without this the page
+  // stays the size it was and focus mode hands the reader empty space instead of a
+  // bigger page. Fit-width does not care: the WIDTH did not move.
+  if (pdfFit === 'page' && pdfDoc && customText && customText.isPdf) {
+    requestAnimationFrame(() => renderPdf());
+  }
 }
 if (localStorage.getItem('cr_header_collapsed') === '1') document.body.classList.add('header-collapsed');
+// Same reason as focus mode, for the same baked-in scale: a resized window is a
+// different box to fit into. Debounced, because resize fires continuously and each
+// render rasterises every visible page.
+let _resizeT = null;
+window.addEventListener('resize', () => {
+  if (!(pdfDoc && customText && customText.isPdf)) return;
+  clearTimeout(_resizeT);
+  _resizeT = setTimeout(() => renderPdf(), 220);
+});
 function renderLangToggles() {
   const row = document.getElementById('langRow');
   if (row) row.style.display = 'none'; // English-only build
