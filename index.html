@@ -1168,7 +1168,11 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .jr-ck-go{flex:0 0 auto;background:none;border:1px solid var(--comment-border);border-radius:6px;
   padding:.25rem .6rem;font:inherit;font-size:.78rem;font-weight:600;color:#2f5233;cursor:pointer}
 .jr-ck-go:hover{background:rgba(47,82,51,.10)}
-.jr-ck-go[disabled]{color:var(--muted);cursor:default;border-style:dashed}
+/* ⚠ NOT A BUTTON (Todd, 2026-08-26): "I don't like shipping apps with buttons that
+   don't seem to work". A week whose article was never opened has nothing to resume, and
+   a dashed disabled button says that in a language nobody reads -- it just looks broken.
+   It is plain text now, so there is exactly one button in this table and it works. */
+.jr-ck-none{flex:0 0 auto;font-size:.78rem;font-style:italic;color:var(--muted);white-space:nowrap}
 .nb-modal-overlay.fullscreen .nb-chat-panes{max-height:44vh}
 .nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
 .nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
@@ -3085,7 +3089,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 23';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 24';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4170,7 +4174,7 @@ function renderChecklist() {
     const rid = st.ids[0] || '';
     const go = rid
       ? `<button class="jr-ck-go" onclick="resumeWeek('${escHtml(encodeURIComponent(rid).replace(/'/g, '%27'))}')">Open</button>`
-      : `<button class="jr-ck-go" disabled title="Open this week's PDF first — the entry is built around the reading.">Open the article first</button>`;
+      : `<span class="jr-ck-none" title="Open this week's PDF first — the entry is built around the reading.">article not opened yet</span>`;
     return `<div class="jr-ck-row"><span class="jr-ck-mark ${cls}">${mark}</span>`
          + `<span class="jr-ck-text"><span class="jr-ck-label">${escHtml(wk.label)}</span><br>`
          + `<span class="jr-ck-state">${escHtml(state)}</span></span>${go}</div>`;
