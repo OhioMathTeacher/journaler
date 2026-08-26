@@ -1036,6 +1036,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     </div>
     <h2 data-i18n="journalTitle">Your Journal</h2>
     <div class="nb-sub" data-i18n="journalSub">Every entry, grouped by reading — this is what you turn in.</div>
+    <div class="jr-checklist" id="jrChecklist"></div>
     <div class="nb-view" id="nbViewByReading"></div>
     <div class="nb-foot">
       <button class="nb-mini" onclick="exportNotebook()" data-i18n="export">↓ Export</button>
@@ -1134,6 +1135,20 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
 .nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
 .nb-chat-off{color:#6a6458;font-style:italic}
+.jr-checklist{font-family:'DM Sans',sans-serif;border:1px solid var(--comment-border);border-radius:9px;
+  background:rgba(212,168,67,.06);padding:.7rem .9rem;margin:.2rem 0 1.1rem}
+.jr-ck-head{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.jr-ck-row{display:flex;align-items:center;gap:.7rem;padding:.42rem 0;border-top:1px solid rgba(0,0,0,.07)}
+.jr-ck-row:first-of-type{border-top:0}
+.jr-ck-mark{flex:0 0 1.1rem;text-align:center;font-size:.95rem;line-height:1}
+.jr-ck-mark.done{color:#2f7a45} .jr-ck-mark.part{color:#b8860b} .jr-ck-mark.none{color:#b9b2a4}
+.jr-ck-text{flex:1;min-width:0}
+.jr-ck-label{font-size:.86rem;color:var(--ink);font-weight:600}
+.jr-ck-state{font-size:.76rem;color:var(--muted)}
+.jr-ck-go{flex:0 0 auto;background:none;border:1px solid var(--comment-border);border-radius:6px;
+  padding:.25rem .6rem;font:inherit;font-size:.78rem;font-weight:600;color:#2f5233;cursor:pointer}
+.jr-ck-go:hover{background:rgba(47,82,51,.10)}
+.jr-ck-go[disabled]{color:var(--muted);cursor:default;border-style:dashed}
 .nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
 .nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
 .nb-noreading p{font-size:.9rem;color:var(--muted);line-height:1.6;margin:0 0 .8rem}
@@ -3998,8 +4013,60 @@ function openCalendar() {
 function closeCalendar() { document.getElementById('calModalOverlay').classList.remove('open'); }
 // Journal is its own modal, opened from the header 🖨 button — every entry grouped by
 // reading; the compilation you print and turn in.
+// Every assigned reading of Act I, whether or not it has been touched -- so the answer
+// to "what do I still owe?" is on screen instead of inferred. WEEK_PROMPTS is already
+// the course list; this just reports what is stored against each week.
+function weekStatus(wk) {
+  const ids = weekReadingIds(wk.id);
+  const journal = loadJournal();
+  const entry = journal.find(e => e.readingId === 'week:' + wk.id)
+             || journal.find(e => ids.indexOf(e.readingId) >= 0);
+  let notes = 0;
+  ids.forEach(r => {
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem('cr_margin_notes_' + r)) || []; } catch {}
+    notes += arr.filter(c => c.passage || c.comment).length;
+  });
+  const take = !!(entry && entry.take && entry.take.trim());
+  const turns = (entry && entry.messages) ? entry.messages.length : 0;
+  return { ids, entry, notes, take, turns };
+}
+function renderChecklist() {
+  const box = document.getElementById('jrChecklist');
+  if (!box) return;
+  const rows = WEEK_PROMPTS.map(wk => {
+    const st = weekStatus(wk);
+    let mark = 'none', cls = 'none', state = 'Not started';
+    if (st.take) { mark = '\u2713'; cls = 'done'; state = `Response written\u2002\u00b7\u2002${st.notes} note${st.notes === 1 ? '' : 's'}`; }
+    else if (st.notes || st.turns) {
+      mark = '\u25d0'; cls = 'part';
+      const bits = [];
+      if (st.notes) bits.push(`${st.notes} note${st.notes === 1 ? '' : 's'}`);
+      if (st.turns) bits.push('conversation started');
+      bits.push('no response yet');
+      state = bits.join('\u2002\u00b7\u2002');
+    } else { mark = '\u25cb'; }
+    // Resuming needs the article back: switchToReading() reopens it from the local
+    // cache. A week whose PDF was never opened here has nothing to reopen.
+    const rid = st.ids[0] || '';
+    const go = rid
+      ? `<button class="jr-ck-go" onclick="resumeWeek('${escHtml(encodeURIComponent(rid))}')">Open</button>`
+      : `<button class="jr-ck-go" disabled title="Open this week's PDF first — the entry is built around the reading.">Open the article first</button>`;
+    return `<div class="jr-ck-row"><span class="jr-ck-mark ${cls}">${mark}</span>`
+         + `<span class="jr-ck-text"><span class="jr-ck-label">${escHtml(wk.label)}</span><br>`
+         + `<span class="jr-ck-state">${escHtml(state)}</span></span>${go}</div>`;
+  }).join('');
+  box.innerHTML = `<div class="jr-ck-head">Act I \u2014 five entries make the 50-point Journal, submitted after Week 5</div>${rows}`;
+}
+async function resumeWeek(encId) {
+  closeJournal();
+  await switchToReading(encId);
+  openNotebook();
+}
+
 function openJournal() {
   nbEditingId = null; nbOpenEntryId = null;
+  renderChecklist();
   renderByReading();
   document.getElementById('journalModalOverlay').classList.add('open');
 }
