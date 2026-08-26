@@ -1207,7 +1207,14 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-pane-chat .nb-pane-title{display:flex;align-items:center;gap:.4rem}
 .nb-chat-sub{font-weight:400;text-transform:none;letter-spacing:0;color:#9a9484;font-size:.72rem}
 .nb-prompt{margin-top:.6rem}
-.nb-pp-text{background:#f6f4ea;border:1px solid #e6e2d2;border-left:3px solid #8a7a3a;border-radius:6px;padding:.6rem .8rem;font-size:.84rem;line-height:1.5;color:#3a352a}
+/* The prompt is the question the whole entry answers, so it should read as an
+   instruction rather than as more of the page. Sans-serif sets it apart from the
+   article's Crimson Pro and from the student's own writing. */
+.nb-pp-text{background:#f6f4ea;border:1px solid #e6e2d2;border-left:4px solid #8a7a3a;border-radius:6px;
+  padding:.85rem 1.05rem;font-family:'DM Sans',system-ui,sans-serif;font-size:1.06rem;font-weight:500;
+  line-height:1.5;color:#2f2a20}
+.nb-pp-text::before{content:"This week's prompt";display:block;font-family:'DM Sans',sans-serif;
+  font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a7a3a;margin-bottom:.4rem}
 .nb-prompt-pick{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
 .nb-week-chip{font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;color:#7A7062;background:#fff;border:1px solid #d8d3c2;border-radius:999px;padding:.25rem .7rem;cursor:pointer}
 .nb-week-chip:hover{border-color:#8a7a3a;color:#3a352a}
@@ -3078,7 +3085,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-25 · build 21';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-25 · build 22';   // ⚠ bump on every deploy
 const APP_REPO = 'https://github.com/OhioMathTeacher/journaler';
 let _setTab = 'ai';
 function gearAILabel() {
