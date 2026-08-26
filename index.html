@@ -1895,6 +1895,7 @@ async function renderPdf() {
   // carry these labels; if this one does not we fall back to the index.
   try { pdfPageLabels = await doc.getPageLabels(); }
   catch (e) { pdfPageLabels = null; console.warn('page labels', e); }
+  await correctForJstorCover(doc);
   const token = ++pdfRenderToken;
   // Keep pdfPageNum inside the document -- a shorter article opened after a longer one
   // would otherwise start on a page that does not exist.
@@ -1985,6 +1986,8 @@ async function renderPdf() {
     layoutMarginNotes();   // pages arrive one at a time; notes follow each one in
   }
   paintNoteMarks();
+  // Notes saved before the cover was recognised still carry the old citation.
+  if (restampNoteLabels()) renderComments();
   layoutMarginNotes();
 }
 
@@ -2000,9 +2003,12 @@ function buildViewBar(doc) {
   if (single) {
     const vis = visiblePages();
     const last = vis.length ? vis[vis.length - 1] : pdfPageNum;
-    const shown = last > pdfPageNum
-      ? 'Pages ' + pageLabelFor(pdfPageNum) + '–' + pageLabelFor(last)
-      : 'Page ' + pageLabelFor(pdfPageNum);
+    // "Pages cover-534" is not a thing anyone says.
+    const shown = (pdfPageNum === 1 && jstorCoverPage)
+      ? (last > 1 ? 'Cover · p. ' + pageLabelFor(last) : 'Cover')
+      : last > pdfPageNum
+        ? 'Pages ' + pageLabelFor(pdfPageNum) + '–' + pageLabelFor(last)
+        : 'Page ' + pageLabelFor(pdfPageNum);
     nav = '<button class="pdfnav-btn" id="pgPrev" ' + (pdfPageNum <= 1 ? 'disabled' : '') +
             ' title="The page before this one">‹ Prev</button>' +
           '<span class="pdfnav-lbl">' + escHtml(shown) + ' of ' + escHtml(pageLabelFor(doc.numPages)) + '</span>' +
@@ -2227,8 +2233,79 @@ function jumpToNote(id) {
 }
 
 function pageLabelFor(n) {
+  if (jstorCoverPage && n === 1) return 'cover';
   const lbl = pdfPageLabels && pdfPageLabels[n - 1];
   return (lbl && String(lbl).trim()) || String(n);
+}
+
+// ── JSTOR cover sheets shift every page number by one ──────────────────────
+//
+// A JSTOR offprint is the article with a provenance sheet stapled in front, and the
+// embedded /PageLabels number that sheet as if it were the article's first page.
+// McFeetors: 13 pages labelled 534-546, while JSTOR's own line on the cover reads
+// pp. 534-544. So the cover is called 534 and the page with 534 PRINTED on it is
+// called 535 -- every citation one too high, in every view, and wrong in build 24 too.
+// The app cannot read the folio off the paper, but it can recognise the cover.
+//
+// Deliberately narrow: two independent JSTOR markers on page 1, and the correction is
+// only a re-index, never an invented number. A false positive would misnumber a whole
+// reading, so this would rather miss a cover than imagine one.
+let jstorCoverPage = false;
+let _coverCheckedFor = null;
+// Detection is cached per document; the SHIFT is re-applied on every render. renderPdf
+// re-reads doc.getPageLabels() each time, which hands back the file's original numbers
+// and silently undoes the correction -- so caching both together fixed page 2 exactly
+// once, then let the next zoom or page-turn put the wrong number back.
+async function correctForJstorCover(doc) {
+  if (_coverCheckedFor !== doc) {
+    _coverCheckedFor = doc;
+    jstorCoverPage = await looksLikeJstorCover(doc);
+    if (jstorCoverPage) {
+      console.log('%cJSTOR cover sheet detected \u2014 page numbers shifted back one to match the printed folio.',
+                  'color:#3a5a40;font-weight:bold');
+    }
+  }
+  if (!jstorCoverPage) return;
+  // Re-index: whatever number the cover was wearing belongs to the page behind it.
+  if (Array.isArray(pdfPageLabels) && pdfPageLabels.length) {
+    pdfPageLabels = [null].concat(pdfPageLabels.slice(0, pdfPageLabels.length - 1));
+  } else {
+    // No embedded labels: page 2 is the article's page 1, so count from there.
+    pdfPageLabels = [null].concat(
+      Array.from({ length: Math.max(0, doc.numPages - 1) }, (_, i) => String(i + 1)));
+  }
+}
+async function looksLikeJstorCover(doc) {
+  try {
+    const tc = await (await doc.getPage(1)).getTextContent();
+    const t = tc.items.map(i => i.str || '').join(' ').replace(/\s+/g, ' ');
+    return [
+      /jstor\.org\/stable/i.test(t),
+      /JSTOR is a not-for-profit/i.test(t),
+      /Terms\s*&\s*Conditions of Use/i.test(t),
+      /Your use of the JSTOR archive/i.test(t)
+    ].filter(Boolean).length >= 2;
+  } catch (e) { console.warn('jstor cover check', e); return false; }
+}
+
+// A label is stamped onto a note when it is saved, so the citation survives the reader
+// closing the chapter. That means notes taken BEFORE the cover was detected carry the
+// old, one-too-high number into the submitted journal. Re-stamp them from the page they
+// are anchored to, which is the thing that was always right.
+function restampNoteLabels() {
+  if (!pdfDoc) return 0;
+  let fixed = 0;
+  comments.forEach(c => {
+    if (!c.anchor || !c.anchor.page) return;
+    const want = pageLabelFor(c.anchor.page);
+    if (c.anchor.label !== want) { c.anchor.label = want; fixed++; }
+  });
+  if (fixed) {
+    saveNotesToStorage();
+    console.log('%cRe-stamped ' + fixed + ' note citation(s) to the printed page numbers.',
+                'color:#3a5a40;font-weight:bold');
+  }
+  return fixed;
 }
 
 // Where on the article is this capture? Derived from the capture rect rather than
@@ -3348,7 +3425,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 28';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 29';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
