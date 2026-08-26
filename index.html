@@ -1054,8 +1054,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <div class="jr-checklist" id="jrChecklist"></div>
     <div class="nb-view" id="nbViewByReading"></div>
     <div class="nb-foot">
-      <button class="nb-mini" onclick="exportNotebook()" data-i18n="export">↓ Export</button>
-      <button class="nb-mini" onclick="printJournal()" title="A printable copy of your whole journal to submit">🖶 Print / PDF</button>
+      <button class="nb-mini" onclick="exportNotebook()" title="Saves this reading's entries as a plain text (.txt) file — handy for pasting elsewhere. This is NOT what you submit; use Assemble Journal for that.">↓ Export as text</button>
+      <button class="nb-mini" onclick="printJournal()" title="Assembles every entry into one document in a new tab. From there, print it or save it as a PDF — that file is what you submit.">📄 Assemble Journal</button>
       <button class="nb-cancel" onclick="closeJournal()" data-i18n="close">Close</button>
     </div>
   </div>
@@ -4443,7 +4443,9 @@ function printJournal() {
     const pages = entries.map(e =>
       `<article><div class="jr-date">${esc(fmtDate(e.ts))}${(e.edited && e.edited !== e.ts) ? ' \u00b7 edited' : ''}</div><div class="jr-body">${bodyHtml(e)}</div></article>`
     ).join('');
-    return `<section><h2>${esc(title)}</h2>${promptHtml}${takeHtml}${hlsHtml}<div class="jr-lbl jr-convo-lbl">My conversation</div>${pages}</section>`;
+    const hasConvo = entries.some(e => e.kind === 'chat' && e.messages && e.messages.length);
+    const convoLbl = hasConvo ? '<div class="jr-lbl jr-convo-lbl">My conversation</div>' : '';
+    return `<section><h2>${esc(title)}</h2>${promptHtml}${takeHtml}${hlsHtml}${convoLbl}${hasConvo ? pages : ''}</section>`;
   }).join('');
   const w = window.open('', '_blank');
   if (!w) { alert('Please allow pop-ups so your journal can open in a printable window.'); return; }
@@ -4461,9 +4463,12 @@ function printJournal() {
     .jr-page{color:#555;font-size:.82em;white-space:nowrap}
     .jr-convo-lbl{display:block;margin:.8rem 0 .3rem}
     .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
+    .lead{cursor:default;padding:.7rem .9rem;background:#f4f4ef;border-left:3px solid #888;color:#333;max-width:44rem}
     @media print{.noprint{display:none}}
   </style></head><body>
-    <button class="noprint" onclick="window.print()">Print / Save as PDF</button>
+    <div class="noprint lead">This is your whole Journal, assembled — every dated entry, in order.
+      Use the button to save it as a PDF, and submit that file.</div>
+    <button class="noprint" onclick="window.print()">Save as PDF / Print</button>
     <h1>Reading Journal</h1><div class="sub">TCE 318P \u00b7 ${all.length} dated ${all.length > 1 ? 'entries' : 'entry'}</div>
     ${sections}</body></html>`);
   w.document.close();
