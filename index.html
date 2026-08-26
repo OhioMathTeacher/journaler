@@ -519,6 +519,14 @@ body.header-collapsed .bar-restore { display: block; }
 .nb-pages-title { font-family:'DM Sans',sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
 .nb-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .nb-view[hidden] { display: none; }
+/* The Journal and the Calendar are lists: let them be as tall as they are, and no
+   taller. Only the Entry modal is a writing surface that wants the whole window,
+   so the fixed 100vh height stays with it. */
+#journalModalOverlay .nb-modal, #calModalOverlay .nb-modal {
+  height: auto; max-height: calc(100vh - 3rem);
+}
+#journalModalOverlay .nb-view, #calModalOverlay .nb-view { flex: 0 1 auto; overflow-y: auto; }
+#nbViewByReading:empty { display: none; }
 #nbEntries, #nbViewCalendar { overflow-y: auto; }
 /* In the Calendar modal, the grid takes the whole modal. */
 #calModalOverlay #nbViewCalendar { flex: 1 1 auto; }
