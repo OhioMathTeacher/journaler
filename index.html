@@ -378,6 +378,35 @@ body.header-collapsed .bar-restore { display: block; }
 .ai-btn.ai-active { border-color: rgba(80,160,80,0.4); color: #7AB87A; }
 .ai-btn.ai-active:hover { border-color: rgba(80,160,80,0.7); }
 .ai-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+#gearDD { position: relative; }
+.gear-dot { width: 6px; height: 6px; border-radius: 50%; background: #6f7f6a; display: inline-block; margin-right: .35rem; }
+.gear-dot.on { background: #58c07a; }
+.set-modal { position: relative; background: #FFFDF7; color: var(--ink);
+  border: 1px solid var(--comment-border); border-radius: 12px; padding: 1.3rem 1.8rem 1.6rem;
+  width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem);
+  display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.4); }
+.set-tabs { display: flex; gap: 1.4rem; border-bottom: 1px solid var(--comment-border); margin: .9rem 0 0; }
+.set-tab { background: none; border: 0; padding: .5rem 0 .55rem; cursor: pointer; font-family:'DM Sans',sans-serif;
+  font-size: .95rem; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.set-tab:hover { color: var(--ink); }
+.set-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.set-body { overflow-y: auto; padding-top: .3rem; }
+.set-row { display: flex; align-items: flex-start; gap: 1.2rem; justify-content: space-between;
+  padding: 1rem 0; border-bottom: 1px solid rgba(0,0,0,.08); }
+.set-row:last-child { border-bottom: 0; }
+.set-row-text { flex: 1; min-width: 0; }
+.set-row h3 { font-family:'DM Sans',sans-serif; font-size: .95rem; font-weight: 700; margin: 0 0 .2rem; color: var(--ink); }
+.set-row p { font-family:'DM Sans',sans-serif; font-size: .82rem; color: var(--muted); margin: 0; line-height: 1.5; }
+.set-kicker { font-family:'DM Sans',sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); margin: 1rem 0 -.4rem; }
+.set-btn { flex: 0 0 auto; background: #2f5233; color: #fff; border: 0; border-radius: 7px;
+  padding: .5rem .9rem; font-family:'DM Sans',sans-serif; font-size: .85rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.set-btn:hover { background: #3a6440; }
+.set-btn.quiet { background: transparent; color: var(--accent); border: 1px solid var(--comment-border); }
+.set-btn.quiet:hover { background: rgba(212,168,67,.12); }
+.set-status { font-family:'DM Sans',sans-serif; font-size: .82rem; font-weight: 600; }
+.set-status .on { color: #2f7a45; } .set-status .off { color: var(--muted); }
+.gear-note { padding: .2rem .7rem .45rem; font-size: .76rem; color: #6a6458; font-family:'DM Sans',sans-serif; }
 
 /* ═══ WRITER'S NOTEBOOK ═══ */
 .nb-btn {
@@ -387,7 +416,11 @@ body.header-collapsed .bar-restore { display: block; }
   display: flex; align-items: center; gap: 0.35rem;
 }
 /* Icon-only header buttons (Calendar · Notebook): bigger glyph, square-ish hit area. */
-.nb-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.3rem 0.5rem; gap: 0; }
+.nb-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.3rem 0.55rem; gap: 0.3rem; }
+.btn-word { font-family:'DM Sans',system-ui,sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: .01em; }
+/* Narrow windows: fall back to the glyph alone rather than wrapping the toolbar. */
+@media (max-width: 1100px) { .btn-word { display: none; } }
+/* Glyphs alone still have to distinguish writing (✎) from reading back (📖). */
 .nb-btn.has-entries { border-color: var(--cave-glow); color: var(--cave-glow); }
 .nb-btn:hover { border-color: rgba(212,168,67,0.5); color: #BDB3A2; }
 .nb-btn.has-entries { border-color: rgba(212,168,67,0.55); color: var(--cave-glow); }
@@ -706,7 +739,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .load-btn:hover { border-color: var(--cave-glow); color: #DDD3C0; }
 .load-btn.has-custom { border-color: var(--cave-glow); color: var(--cave-glow); }
 /* Icon-only toolbar buttons: bigger glyph, square-ish hit area. */
-.load-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.32rem 0.62rem; }
+.load-btn.icon-btn { font-size: 1.05rem; line-height: 1; padding: 0.32rem 0.62rem; gap: 0.3rem; }
 /* Save button glows amber when there are unsaved changes to download. */
 #saveJournalBtn.unsaved { border-color: #e0a92f; background: rgba(224,169,47,0.16); color: #f0d59a; font-weight: 600; }
 @keyframes saveNudge { 0%,100%{ box-shadow: 0 0 0 0 rgba(224,169,47,0); } 50%{ box-shadow: 0 0 0 3px rgba(224,169,47,0.28); } }
@@ -788,7 +821,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   <div class="header-inner">
     <div class="header-text">
       <div class="title-dd" id="titleDD">
-        <button class="title-select" id="readingTitleBtn" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleReadingMenu(event)" title="Your articles · load new · export / import">
+        <button class="title-select" id="readingTitleBtn" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleReadingMenu(event)" title="Your readings — every article you have opened is kept here. Click to switch between them, to open a new PDF, or to restore a journal backup.">
           <span id="readingTitleText">Journaler</span><span class="title-caret">⌄</span>
         </button>
         <div class="reading-menu" id="readingMenu" role="listbox" hidden></div>
@@ -799,19 +832,25 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <div class="header-right">
       <div class="ui-lang-wrap" style="display:none"><label class="ui-lang-label" for="uiLangSelect" data-i18n="yourLanguage">Your language</label><select id="uiLangSelect" class="ui-lang-select" onchange="setUiLang(this.value)" title="Interface language"></select></div>
       <div class="instructions" data-i18n-html="instructionsHtml">
-        <em>Select any text</em> to ask Socrates · open your <em>Notebook</em> to think on the page
+        <em>Drag a box</em> around any passage to note it · open <em>This Week's Entry</em> to answer the prompt
       </div>
       <div style="display:flex;gap:0.5rem;align-items:center">
-        <button class="load-btn" id="captureModeBtn" onclick="toggleCaptureMode()" title="Box mode: drag a box on the page to capture a passage or a figure. Toggle to select text normally.">▭ Box</button>
-        <button class="load-btn" id="zoomOutBtn" onclick="zoomPdf(-1)" title="Zoom out">A−</button>
-        <button class="load-btn" id="zoomInBtn" onclick="zoomPdf(1)" title="Zoom in">A+</button>
-        <button class="nb-btn icon-btn" id="nbBtn" onclick="openNotebook()" title="Notebook — write this week's entry for this reading" aria-label="Notebook">📓</button>
-        <button class="nb-btn icon-btn" id="calBtn" onclick="openCalendar()" title="Calendar — your writing days across the semester" aria-label="Calendar">📅</button>
-        <button class="nb-btn icon-btn" id="journalBtn" onclick="openJournal()" title="Your journal — every entry grouped by reading (what you turn in)" aria-label="Journal">🖨</button>
-        <button class="load-btn icon-btn" id="saveJournalBtn" onclick="exportAll()" title="Save your work to a file — download it to your thumb drive, cloud, or email" aria-label="Save your work to a file">⤓</button>
-        <button class="ai-btn" id="aiBtn" onclick="openAIModal()">
-          <span class="ai-dot"></span><span id="aiBtnLabel">AI: Off</span>
-        </button>
+        <button class="load-btn" id="zoomOutBtn" onclick="zoomPdf(-1)" title="Smaller — fit more of the page on screen">A−</button>
+        <button class="load-btn" id="zoomInBtn" onclick="zoomPdf(1)" title="Larger — easier on the eyes for close reading">A+</button>
+        <button class="nb-btn icon-btn" id="nbBtn" onclick="openNotebook()" title="Write this week's entry for this reading — the prompt, your marked passages, your response, and your conversation with Todd-in-a-Can. Five of these entries make the Journal you submit after Week 5." aria-label="This week's entry">✎ <span class="btn-word">This Week's Entry</span></button>
+
+        <button class="nb-btn icon-btn" id="journalBtn" onclick="openJournal()" title="Every entry you have written, grouped by reading — this is the Journal you submit. Print / PDF from here to make the single file." aria-label="Journal">📖 <span class="btn-word">Journal</span></button>
+        <!-- Everything you do occasionally lives behind the gear, so the bar carries only
+             what a reader touches while reading: how to mark, how big, where to write,
+             what to submit. The AI moved in here too -- it is optional, and a permanent
+             button for it said otherwise. The gear keeps a dot so its state is still
+             visible at a glance. -->
+        <div class="title-dd" id="gearDD">
+          <button class="load-btn icon-btn" id="gearBtn" type="button" aria-haspopup="menu" aria-expanded="false"
+                  onclick="openSettings()" title="Settings — reading partner, calendar, backups" aria-label="Settings">
+            <span class="gear-dot" id="gearDot"></span>⚙
+          </button>
+        </div>
         <button class="focus-btn" onclick="setHeaderCollapsed(true)" data-i18n-title="focusTitle" title="Focus mode — hide the top bar for more room to read &amp; write">⤢</button>
       </div>
     </div>
@@ -909,7 +948,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <button class="nb-fs-toggle" type="button" onclick="setNbFullscreen(!nbFullscreen)" title="Toggle fullscreen"><span id="nbFsLabel">⤢ Fullscreen</span></button>
       <button class="nb-close-x" onclick="closeNotebook()" aria-label="Close" title="Close">×</button>
     </div>
-    <h2 data-i18n="notebook">Notebook</h2>
+    <h2 data-i18n="notebook">This Week's Entry</h2>
     <div class="nb-sub" id="nbSub" data-i18n="nbSub">Your private notes on this reading — yours alone unless you share one.</div>
     <!-- COMPOSE — always visible, tied to the current reading: this is where you write. -->
     <div class="nb-compose" id="nbViewReading">
@@ -919,11 +958,11 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       </div>
       <div class="nb-chat-panes">
         <div class="nb-pane nb-pane-highlights">
-          <div class="nb-pane-title">Your highlights</div>
+          <div class="nb-pane-title" title="The passages you marked in the reading, with your notes. These are your evidence — they print in your entry and Todd builds the conversation from them.">Your highlights</div>
           <div class="nb-hl-list" id="nbHlList"></div>
         </div>
         <div class="nb-pane nb-pane-chat">
-          <div class="nb-pane-title">Todd-in-a-Can <span class="nb-chat-sub">· today's entry</span>
+          <div class="nb-pane-title" title="An AI reading partner who asks about what you marked and never hands you answers. Optional — your entry is yours with or without it.">Todd-in-a-Can <span class="nb-chat-sub">· today's entry</span>
             <span class="nb-focus" id="nbFocus" title="Focused = build toward answering the prompt · Exploratory = open, curious wandering"><button type="button" data-f="focused" onclick="setChatFocus('focused')">Focused</button><button type="button" data-f="exploratory" onclick="setChatFocus('exploratory')">Exploratory</button></span>
             <button class="nb-take-btn" onclick="askForTake()" title="Todd asks you to state your take — the heart of your entry">✓ State my take</button>
             <button class="nb-startover" onclick="startOverToddChat()" title="Clear this conversation and start again">↺ Start over</button></div>
@@ -940,7 +979,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
            to get here, not the only way. This is the field the rubric calls the "take",
            and it is what the submitted PDF prints under "My take". -->
       <div class="nb-pane nb-pane-response">
-        <div class="nb-pane-title">Your response <span class="nb-chat-sub">· your answer to this week's prompt, in your own words</span>
+        <div class="nb-pane-title" title="Your answer to the week's prompt, in your own words. Saves as you type, needs no AI, and prints at the top of your entry.">Your response <span class="nb-chat-sub">· your answer to this week's prompt, in your own words</span>
           <span class="nb-resp-state" id="nbRespState"></span></div>
         <textarea id="nbRespText" class="nb-resp-text" rows="6"
           placeholder="Answer this week's prompt here. Say what the evidence has you thinking, and where it is still uncertain. Saves as you type."
@@ -950,6 +989,25 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <div class="nb-foot">
       <button class="nb-cancel" onclick="closeNotebook()" data-i18n="close">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- SETTINGS — the gear. A hub, not a container: each tab explains one thing and
+     hands you the control for it. The calendar keeps its own window; this only says
+     what it is and opens it. -->
+<div class="nb-modal-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="set-modal">
+    <div class="nb-winctl">
+      <button class="nb-close-x" onclick="closeSettings()" aria-label="Close" title="Close">×</button>
+    </div>
+    <h2>Settings</h2>
+    <div class="nb-sub">Everything here is optional. Reading, marking passages and writing your entry all work without it.</div>
+    <div class="set-tabs" role="tablist">
+      <button type="button" class="set-tab on" data-set="ai"  role="tab" onclick="selectSettingsTab('ai')">Reading partner</button>
+      <button type="button" class="set-tab"    data-set="cal" role="tab" onclick="selectSettingsTab('cal')">Calendar</button>
+      <button type="button" class="set-tab"    data-set="bak" role="tab" onclick="selectSettingsTab('bak')">Backups</button>
+    </div>
+    <div class="set-body" id="setBody"></div>
   </div>
 </div>
 
@@ -1053,8 +1111,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <ol class="welcome-steps">
       <li><strong>Get the reading.</strong> Open that week's <em>Reading Homework</em> sheet, follow its JSTOR link, and download the article PDF through Miami's library.</li>
       <li><strong>Open it here.</strong> Click <em>Open article</em>, choose the PDF, and it appears on the left to read.</li>
-      <li><strong>Think in the margins.</strong> Select any passage to ask Socrates a question; your notes save beside the text.</li>
-      <li><strong>Write your entry.</strong> Open your <em>Notebook</em> and write that week's dated journal entry, using the prompt on the Reading Homework sheet.</li>
+      <li><strong>Think in the margins.</strong> Drag a box around any passage and write what you notice; your notes save beside the text.</li>
+      <li><strong>Write your entry.</strong> Open <em>This Week's Entry</em> and answer that week's prompt from the Reading Homework sheet. Five entries make the Journal you submit after Week 5.</li>
       <li><strong>Turn it in.</strong> At the end of Act I, open the Notebook and choose <em>Print / PDF</em> to submit your whole journal as one file.</li>
     </ol>
     <p class="welcome-note"><strong>On a shared or public computer?</strong> This browser may forget your work when you log out. Keep your work in a file — thumb drive, cloud, or email: save it with the <strong>⤓</strong> button (top bar) as you go, and open it here each time. On your own device, your work is remembered automatically. Nothing is ever uploaded.</p>
@@ -1076,6 +1134,10 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .nb-hl-n{font-weight:700;color:#8a7a3a;font-size:.78rem;flex:0 0 auto}
 .nb-hl-passage{font-size:.82rem;line-height:1.4;color:#3a352a}
 .nb-chat-off{color:#6a6458;font-style:italic}
+.nb-noreading{max-width:34rem;margin:2.5rem auto;text-align:center;font-family:'DM Sans',sans-serif}
+.nb-noreading h3{font-family:'Crimson Pro',serif;font-weight:400;font-size:1.3rem;margin:0 0 .5rem;color:var(--ink)}
+.nb-noreading p{font-size:.9rem;color:var(--muted);line-height:1.6;margin:0 0 .8rem}
+.nb-noreading button{margin-top:.5rem}
 .nb-pane-response{margin-top:.9rem}
 .nb-resp-text{width:100%;box-sizing:border-box;min-height:8rem;resize:vertical;padding:.7rem .8rem;
   border:1px solid rgba(0,0,0,.18);border-radius:7px;background:#fffefa;color:#2a2a24;
@@ -1144,7 +1206,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   <div class="text-column" id="textColumn"></div>
   <div class="comment-column" id="commentColumn">
     <div class="margin-header">
-      <div class="margin-header-title">
+      <div class="margin-header-title" title="Your notes on this reading. Mark a passage in the article and say what you notice; each note is kept here beside the text. Click one to jump back to the passage it came from.">
         <span data-i18n="marginNotes">Margin Notes</span>
         <span class="margin-header-subtitle" data-i18n="personalAuto">Personal — Auto-saved</span>
       </div>
@@ -1156,7 +1218,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <div id="commentList">
       <div class="empty-state" id="emptyState">
         <div class="icon">✎</div>
-        <span data-i18n-html="emptyStateHtml">Select any passage in the text,<br>then ask a question.<br>Your thread will appear here.</span>
+        <span data-i18n-html="emptyStateHtml">Drag a box around a passage,<br>then write what you notice.<br>Your notes will appear here.</span>
       </div>
     </div>
   </div>
@@ -1748,48 +1810,60 @@ async function renderPdf() {
 function setCaptureMode(m) {
   pdfCaptureMode = m;
   document.querySelectorAll('.marquee-overlay').forEach(o => { o.style.pointerEvents = (m === 'box') ? 'auto' : 'none'; });
-  const btn = document.getElementById('captureModeBtn');
-  if (btn) { btn.textContent = (m === 'box') ? '▭ Box' : '✎ Select'; btn.classList.toggle('has-custom', m === 'box'); }
+  const btn = document.getElementById('captureModeBtn'); // gone from the bar; kept null-safe
+  if (btn) btn.classList.toggle('has-custom', m === 'box');
   document.body.classList.toggle('marquee-on', m === 'box');
 }
-function toggleCaptureMode() { setCaptureMode(pdfCaptureMode === 'box' ? 'select' : 'box'); }
+// Select mode removed: box is the only way to mark a passage. Native selection over a
+// pdf.js text layer -- absolutely positioned, transparent, one span per run -- drops
+// lines and jumps columns. setCaptureMode stays; the overlay still needs pointer-events.
 function zoomPdf(dir) {
   const step = 1.2;
   pdfZoom = Math.max(0.6, Math.min(3.2, dir > 0 ? pdfZoom * step : pdfZoom / step));
   if (pdfDoc && customText && customText.isPdf) renderPdf();
 }
 
+// ONE drag at a time, and one pair of window listeners for the whole app.
+//
+// These used to be registered inside attachMarquee -- which runs once per PAGE, on
+// every render. renderPdf() re-runs on every zoom, so a 13-page article added 26
+// permanent window listeners per zoom step. After a few taps of A+ there were
+// hundreds of handlers firing on every mouse move, all racing over the same
+// .marquee-box. The drag is inherently global (the pointer leaves the page you
+// started on), so the listeners belong at the window ONCE, with the active drag
+// held in one place.
+let _mq = null;
 function attachMarquee(overlay, canvas, textLayerDiv) {
-  let startX = 0, startY = 0, boxEl = null, dragging = false;
   overlay.addEventListener('mousedown', e => {
     if (pdfCaptureMode !== 'box' || e.button !== 0) return;
     document.querySelectorAll('.marquee-box').forEach(b => b.remove());
-    dragging = true;
     const r = overlay.getBoundingClientRect();
-    startX = e.clientX - r.left; startY = e.clientY - r.top;
-    boxEl = document.createElement('div'); boxEl.className = 'marquee-box';
+    const boxEl = document.createElement('div');
+    boxEl.className = 'marquee-box';
+    const startX = e.clientX - r.left, startY = e.clientY - r.top;
     boxEl.style.left = startX + 'px'; boxEl.style.top = startY + 'px';
     overlay.appendChild(boxEl);
+    _mq = { overlay, canvas, textLayerDiv, startX, startY, boxEl };
     e.preventDefault();
   });
-  window.addEventListener('mousemove', e => {
-    if (!dragging || !boxEl) return;
-    const r = overlay.getBoundingClientRect();
-    const cx = e.clientX - r.left, cy = e.clientY - r.top;
-    boxEl.style.left = Math.min(startX, cx) + 'px';
-    boxEl.style.top = Math.min(startY, cy) + 'px';
-    boxEl.style.width = Math.abs(cx - startX) + 'px';
-    boxEl.style.height = Math.abs(cy - startY) + 'px';
-  });
-  window.addEventListener('mouseup', () => {
-    if (!dragging) return; dragging = false;
-    if (!boxEl) return;
-    const r = boxEl.getBoundingClientRect();
-    if (r.width < 6 || r.height < 6) { boxEl.remove(); boxEl = null; return; }
-    handleMarqueeCapture(r, canvas, textLayerDiv);
-    boxEl = null;
-  });
 }
+window.addEventListener('mousemove', e => {
+  if (!_mq) return;
+  const r = _mq.overlay.getBoundingClientRect();
+  const cx = e.clientX - r.left, cy = e.clientY - r.top;
+  _mq.boxEl.style.left = Math.min(_mq.startX, cx) + 'px';
+  _mq.boxEl.style.top = Math.min(_mq.startY, cy) + 'px';
+  _mq.boxEl.style.width = Math.abs(cx - _mq.startX) + 'px';
+  _mq.boxEl.style.height = Math.abs(cy - _mq.startY) + 'px';
+});
+window.addEventListener('mouseup', () => {
+  const mq = _mq;
+  if (!mq) return;
+  _mq = null;
+  const r = mq.boxEl.getBoundingClientRect();
+  if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); return; }
+  handleMarqueeCapture(r, mq.canvas, mq.textLayerDiv);
+});
 
 function handleMarqueeCapture(boxRect, canvas, textLayerDiv) {
   // exact text: spans whose box mostly falls inside the marquee, in reading order.
@@ -1992,12 +2066,12 @@ const UI_LOCALE = { en: 'en-US', es: 'es', el: 'el', zh: 'zh', hi: 'hi', no: 'nb
 const STRINGS = {
   en: {
     yourLanguage: 'Your language', readIn: 'Read in:',
-    instructionsHtml: '<em>Select any passage</em> to write a note on it · open your <em>Notebook</em> to write your dated journal entry',
-    loadText: 'Open article', notebook: 'Notebook', aiOff: 'AI: Off',
+    instructionsHtml: '<em>Drag a box</em> around any passage to note it · open <em>This Week\'s Entry</em> to answer the prompt',
+    loadText: 'Open article', notebook: "This Week's Entry", aiOff: 'AI: Off',
     focusTitle: 'Focus mode — hide the top bar for more room to read & write',
     showBar: '⤢ Show bar', chooseReading: 'Choose a reading', uiLangTitle: 'Interface language',
     marginNotes: 'Your Notes', personalAuto: 'Personal — Auto-saved', clear: '✕ Clear', clearTitle: 'Clear all margin notes',
-    emptyStateHtml: "Mark what strikes you as you read, and say why.<br>Box or select a passage, then write your note — no AI needed.<br>Your notes collect here.",
+    emptyStateHtml: "Mark what strikes you as you read, and say why.<br>Drag a box around a passage, then write your note — no AI needed.<br>Your notes collect here.",
     popupPlaceholder: 'Ask Socrates about this passage…', explainSimply: 'Explain simply', goDeeper: 'Go deeper', giveExample: 'Give an example',
     toFreewrite: '→ Freewrite', cancel: 'Cancel', ask: 'Ask',
     nbSub: 'Write your entry here. Ask Todd-in-a-Can to press your thinking. Save a dated entry when it is ready.',
@@ -2467,8 +2541,12 @@ function getStoredKey(provider) {
 let _modalProvider = 'none';
 
 function updateAIBtn() {
+  // The dedicated AI button is gone; its state now shows as a dot on the gear.
+  const dot = document.getElementById('gearDot');
+  if (dot) dot.classList.toggle('on', aiConfigured());
   const btn   = document.getElementById('aiBtn');
   const label = document.getElementById('aiBtnLabel');
+  if (!btn || !label) return;
   const p = getProvider();
   if (p === 'anthropic') {
     btn.classList.add('ai-active');
@@ -2961,6 +3039,76 @@ function importAll(event) {
   };
   reader.readAsText(file);
 }
+// Settings: a hub. Each tab explains one thing and hands over the control for it.
+// Built fresh on open so the reading-partner line states the truth about the current
+// provider rather than a label cached at load.
+let _setTab = 'ai';
+function gearAILabel() {
+  const p = getProvider();
+  if (!p || p === 'none') return 'Off';
+  if (p === 'local') return getLocalModel() ? 'Local model \u2713' : 'Local (no model chosen)';
+  const names = { anthropic: 'Claude', gemini: 'Gemini', groq: 'Groq', custom: 'Custom endpoint' };
+  const n = names[p] || p;
+  return getStoredKey(p) ? `${n} \u2713` : `${n} (no key)`;
+}
+function selectSettingsTab(tab) {
+  _setTab = tab;
+  document.querySelectorAll('.set-tab').forEach(b => b.classList.toggle('on', b.dataset.set === tab));
+  renderSettings();
+}
+function renderSettings() {
+  const box = document.getElementById('setBody');
+  if (!box) return;
+  const esc = escHtml;
+  if (_setTab === 'ai') {
+    const on = aiConfigured();
+    box.innerHTML =
+      `<div class="set-row"><div class="set-row-text">
+         <h3>Todd-in-a-Can</h3>
+         <p>An AI reading partner who asks about the passages you marked and never hands you answers.
+            Talking with him is one way to reach your response \u2014 not the only way.</p>
+       </div><span class="set-status">${on ? `<span class="on">${esc(gearAILabel())}</span>` : '<span class="off">Off</span>'}</span></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Choose a model</h3>
+         <p>Run one locally, or connect a hosted model with your own key. Nothing you write is uploaded
+            unless you send it to the partner yourself.</p>
+       </div><button class="set-btn" onclick="closeSettings();openAIModal()">Choose\u2026</button></div>`;
+  } else if (_setTab === 'cal') {
+    box.innerHTML =
+      `<div class="set-row"><div class="set-row-text">
+         <h3>Your writing days</h3>
+         <p>Every day you wrote is marked on a calendar of the semester. Click a day to read what you
+            wrote then. The journal is dated on purpose \u2014 entries are written week by week, while the
+            reading is fresh, not all at the end of Act I.</p>
+       </div><button class="set-btn" onclick="closeSettings();openCalendar()">Open calendar</button></div>`;
+  } else {
+    box.innerHTML =
+      `<div class="set-row"><div class="set-row-text">
+         <h3>Save a backup</h3>
+         <p>Your notes and entries in one <code>.json</code> file \u2014 for a thumb drive, cloud, or your own
+            email. The article itself is not included; you can always open the PDF again.</p>
+       </div><button class="set-btn" onclick="closeSettings();exportAll()">Save\u2026</button></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Restore a backup</h3>
+         <p>Open a <code>.json</code> file you saved earlier to pick up where you left off on another
+            machine. This replaces matching notes and entries in this browser.</p>
+       </div><button class="set-btn quiet" onclick="closeSettings();openJournalFile()">Restore\u2026</button></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>On a shared or public computer</h3>
+         <p>This browser may forget your work when you log out. Save a backup as you go, and open it
+            again each time. On your own device your work is remembered automatically.</p>
+       </div></div>`;
+  }
+}
+function openSettings() {
+  selectSettingsTab(_setTab);
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSettings();
+});
+
 function toggleReadingMenu(e) {
   e.stopPropagation();
   const menu = document.getElementById('readingMenu');
@@ -3803,7 +3951,7 @@ function renderNbChat(note) {
     const multi = new Set(hl.map(c => c._reading).filter(Boolean)).size > 1; // 2-reading week → show source
     hlBox.innerHTML = hl.length
       ? hl.map((c, i) => `<div class="nb-hl"><span class="nb-hl-n">${i + 1}</span><div class="nb-hl-body">${multi && c._reading ? `<div class="nb-hl-src">${escHtml(c._reading)}</div>` : ''}<div class="nb-hl-passage">${escHtml(c.passage || '(a figure)')}</div>${c.comment ? `<div class="nb-hl-note">${escHtml(c.comment)}</div>` : ''}</div></div>`).join('')
-      : '<div class="nb-empty">No highlights yet. In the reading, mark the passages that strike you (Box mode, or select text → Highlight). They gather here, and Todd builds the conversation from them.</div>';
+      : '<div class="nb-empty">No highlights yet. In the reading, drag a box around the passages that strike you and write what you notice. They gather here, and Todd builds the conversation from them.</div>';
   }
   // Chat pane.
   const log = document.getElementById('nbChatLog');
@@ -3986,6 +4134,22 @@ function entryHtml(e, opts) {
 // and Journal (by reading).
 function renderNotebook() {
   applyEditFocus();
+  // An entry is ABOUT a reading: the prompt is detected from the PDF and the highlights
+  // come out of it. With no article open, journalGroupId() falls back to a stale reading
+  // slug and cheerfully shows the last one's work -- so say what is missing instead.
+  const compose = document.getElementById('nbViewReading');
+  if (!customText) {
+    if (compose) compose.innerHTML =
+      `<div class="nb-noreading">
+         <h3>No article open yet</h3>
+         <p>Your entry is built around a reading — this week's prompt appears once the app
+            recognises the article, and the passages you mark gather beside it.</p>
+         <p>Open this week's PDF from the Reading Homework sheet, mark what strikes you,
+            then come back here to answer the prompt.</p>
+         <button class="nb-send" onclick="closeNotebook();openLoadModal()">Open article…</button>
+       </div>`;
+    return;
+  }
   renderNbChat();          // compose: prompt · highlights · Todd-in-a-Can
 }
 
