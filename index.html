@@ -2778,8 +2778,7 @@ function exportNotes() {
     alert('No notes to export yet.');
     return;
   }
-  const now = new Date().toISOString().split('T')[0];
-  const filename = `allegory-notes-${now}.json`;
+  const filename = `tce318p-notes-${fileStamp()}.json`;   // (unreferenced; was allegory-notes-*)
   const data = {
     exported: new Date().toISOString(),
     text: (READINGS[currentReadingSlug] && READINGS[currentReadingSlug].languages[currentLang] && READINGS[currentReadingSlug].languages[currentLang].label) || currentLang,
@@ -3394,6 +3393,22 @@ function hasSavedWork() {
 }
 function openJournalFile() { closeReadingMenu(); document.getElementById('importAllInput').click(); }
 
+// Local time, not ISO/UTC: a student saving at 11pm should not find a file dated
+// tomorrow. Sorts correctly in a file listing, and the minutes matter because more than
+// one backup a day is the normal case on the night an entry is due.
+// Just the build number, for a filename. The date half of APP_VERSION would only repeat
+// the timestamp that is already there.
+function buildTag() {
+  const m = /build\s*(\w+)/i.exec(APP_VERSION || '');
+  return m ? 'b' + m[1] : 'b0';
+}
+
+function fileStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+       + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+
 function exportAll() {
   const SKIP = ['cr_anthropic_key', 'cr_gemini_key', 'cr_groq_key', 'cr_custom_key'];
   const data = {};
@@ -3401,10 +3416,21 @@ function exportAll() {
     const k = localStorage.key(i);
     if (k && k.indexOf('cr_') === 0 && SKIP.indexOf(k) === -1) data[k] = localStorage.getItem(k);
   }
-  const blob = new Blob([JSON.stringify({ journaler318: 1, data }, null, 2)], { type: 'application/json' });
+  // savedAt travels INSIDE the file too: filenames get renamed, copied to thumb drives
+  // and de-duplicated by the browser, and "which of these two backups is newer" is the
+  // one question you need answered at the moment you are restoring one.
+  // appVersion goes in BOTH places on purpose. The timestamp says when the student
+  // saved; it does NOT say what wrote the file, because the app does not update itself
+  // -- someone who has not hard-refreshed since Monday can save a file on Friday out of
+  // build 24. Those two facts come apart at exactly the moment you are debugging, so the
+  // filename carries the build for a glance at an email attachment, and the payload
+  // carries it authoritatively for after someone renames the file.
+  const blob = new Blob([JSON.stringify({
+    journaler318: 1, appVersion: APP_VERSION, savedAt: new Date().toISOString(), data
+  }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'journaler-journal-backup.json';
+  a.download = 'tce318p-journal-' + fileStamp() + '-' + buildTag() + '.json';
   a.click();
   URL.revokeObjectURL(a.href);
   workDirty = false; updateSaveBtn();
@@ -3438,7 +3464,7 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-26 · build 31';   // ⚠ bump on every deploy
+const APP_VERSION = '2026-08-26 · build 32';   // ⚠ bump on every deploy
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4918,7 +4944,8 @@ function exportNotebook() {
   const blob = new Blob([`Journal entries — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'journal-entries-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.txt';
+  a.download = 'tce318p-entries-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+             + '-' + fileStamp() + '-' + buildTag() + '.txt';
   a.click();
   URL.revokeObjectURL(a.href);
 }
