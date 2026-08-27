@@ -34,7 +34,7 @@ body {
   -webkit-font-smoothing: antialiased;
   /* App fills the viewport exactly; the columns scroll internally so the page
      never extends past the window (no more guessing the header height). */
-  height: 100vh; overflow: hidden;
+  height: 100vh; height: 100dvh; overflow: hidden;
   display: flex; flex-direction: column;
 }
 
@@ -470,7 +470,7 @@ body.header-collapsed .bar-restore { display: block; }
 .gear-dot.on { background: #58c07a; }
 .set-modal { position: relative; background: #FFFDF7; color: var(--ink);
   border: 1px solid var(--comment-border); border-radius: 12px; padding: 1.3rem 1.8rem 1.6rem;
-  width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem);
+  width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem);
   display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.4); }
 .set-tabs { display: flex; gap: 1.4rem; border-bottom: 1px solid var(--comment-border); margin: .9rem 0 0; }
 .set-tab { background: none; border: 0; padding: .5rem 0 .55rem; cursor: pointer; font-family:'DM Sans',sans-serif;
@@ -516,16 +516,41 @@ body.header-collapsed .bar-restore { display: block; }
   z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;
 }
 .nb-modal-overlay.open { display: flex; }
+/* On a tablet or phone the generous desktop padding is the difference between seeing
+   the footer buttons -- Assemble Journal among them -- and never knowing they are there. */
+@media (max-width: 900px) and (pointer: coarse) {
+  .nb-modal-overlay { padding: 0.5rem; }
+  .nb-modal { padding: 0.9rem 1rem; }
+}
+/* On a touch screen the Journal is ONE scrolling thing with its buttons pinned.
+   The modal is a flex column -- heading, checklist, list, footer -- and only the
+   list was allowed to scroll. On a short screen the checklist alone can outgrow
+   the box, and since the siblings do not shrink, the footer (Assemble Journal, the
+   button that produces the file students submit) is pushed off the bottom with no
+   way to reach it. Desktop is deliberately untouched: it has the height already. */
+@media (pointer: coarse) {
+  #journalModalOverlay .nb-modal {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    max-height: calc(100dvh - 1rem);
+  }
+  #journalModalOverlay .nb-view,
+  #journalModalOverlay .jr-checklist { overflow: visible; flex: 0 0 auto; }
+  #journalModalOverlay .nb-foot {
+    position: sticky; bottom: 0; z-index: 2;
+    background: #FFFDF7; padding: 0.55rem 0 0.15rem;
+    box-shadow: 0 -8px 12px -8px rgba(0,0,0,.25);
+  }
+}
 .nb-modal {
   position: relative;
   background: #FFFDF7; color: var(--ink); border: 1px solid var(--comment-border);
   border-radius: 12px; padding: 1.3rem 1.8rem;
-  width: min(960px, calc(100vw - 3rem)); height: calc(100vh - 3rem);
+  width: min(960px, calc(100vw - 3rem)); height: calc(100vh - 3rem); height: calc(100dvh - 3rem);
   display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.4);
 }
 /* Fullscreen — edge-to-edge writing room; toggle off to return to the windowed modal. */
 .nb-modal-overlay.fullscreen { padding: 0; }
-.nb-modal-overlay.fullscreen .nb-modal { width: 100vw; height: 100vh; max-width: none; border-radius: 0; border: none; }
+.nb-modal-overlay.fullscreen .nb-modal { width: 100vw; height: 100vh; height: 100dvh; max-width: none; border-radius: 0; border: none; }
 /* Window controls (fullscreen toggle + ✕ close), pinned top-right of the modal. */
 .nb-winctl { position: absolute; top: 1rem; right: 1.3rem; display: flex; align-items: center; gap: 0.9rem; z-index: 3; }
 .nb-fs-toggle { font-family:'DM Sans',sans-serif; font-size: 0.74rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; user-select: none; background: transparent; border: 1px solid var(--comment-border); border-radius: 6px; padding: 0.22rem 0.55rem; }
@@ -611,7 +636,7 @@ body.header-collapsed .bar-restore { display: block; }
    taller. Only the Entry modal is a writing surface that wants the whole window,
    so the fixed 100vh height stays with it. */
 #journalModalOverlay .nb-modal, #calModalOverlay .nb-modal {
-  height: auto; max-height: calc(100vh - 3rem);
+  height: auto; max-height: calc(100vh - 3rem); max-height: calc(100dvh - 3rem);
 }
 #journalModalOverlay .nb-view, #calModalOverlay .nb-view { flex: 0 1 auto; overflow-y: auto; }
 #nbViewByReading:empty { display: none; }
@@ -851,7 +876,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 .load-modal {
   background: var(--comment-bg); border: 1px solid var(--comment-border);
   border-radius: 10px; padding: 2rem; width: min(620px, 92vw);
-  max-height: 90vh; overflow-y: auto;
+  max-height: 90vh; max-height: 90dvh; overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.28);
   font-family: 'DM Sans', sans-serif;
 }
@@ -1151,7 +1176,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <style>
   .welcome-overlay{position:fixed;inset:0;background:rgba(20,20,16,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:1.2rem}
   .welcome-overlay.open{display:flex}
-  .welcome-card{background:#fdfdf8;color:#2a2a24;max-width:34rem;width:100%;max-height:90vh;overflow:auto;border-radius:14px;padding:2rem 2.2rem;position:relative;font-family:'DM Sans',system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .welcome-card{background:#fdfdf8;color:#2a2a24;max-width:34rem;width:100%;max-height:90vh;max-height:90dvh;overflow:auto;border-radius:14px;padding:2rem 2.2rem;position:relative;font-family:'DM Sans',system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.3)}
   .welcome-card h2{font-family:'DM Sans',sans-serif;font-size:1.35rem;margin:0 0 .3rem}
   .welcome-lead{color:#6a6a5a;margin:0 0 1.2rem;font-size:.95rem}
   .welcome-steps{margin:0 0 1.2rem;padding-left:1.2rem}
@@ -1240,6 +1265,23 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .reading-menu .fm-sep{height:1px;background:rgba(0,0,0,.09);margin:.3rem 0}
   .reading-menu .fm-action,.reading-menu .fm-article{display:block;width:100%;text-align:left;background:none;border:0;padding:.45rem .85rem;font:inherit;font-size:.85rem;cursor:pointer;color:#2b2620}
   .reading-menu .fm-action:hover,.reading-menu .fm-article:hover{background:rgba(212,168,67,.16)}
+  /* The ✕ is a neighbour of the title, not a thing inside it: a click on the row
+     opens the reading, a click on the ✕ takes it off the shelf, and neither can be
+     mistaken for the other. Faint until the row is under the pointer -- on a touch
+     screen there is no hover, so it simply stays visible. */
+  .reading-menu .fm-row{display:flex;align-items:center;gap:.15rem}
+  /* width:auto is LOAD-BEARING. `.reading-menu button` sets width:100% on every button
+     in this menu, so without this the ✕ claims the whole row, the title is squeezed to
+     its narrowest possible box, and a three-word article name stacks one word per line
+     beside a giant ✕. */
+  .reading-menu .fm-row .fm-article{flex:1 1 auto;min-width:0;width:auto}
+  .reading-menu .fm-x{flex:0 0 auto;width:auto;background:none;border:0;padding:.3rem .45rem;
+    cursor:pointer;font-size:.95rem;line-height:1;border-radius:6px;filter:grayscale(1);
+    opacity:.45;transition:opacity .12s,filter .12s}
+  .reading-menu .fm-row:hover .fm-x{opacity:.85}
+  .reading-menu .fm-x:hover{opacity:1;filter:none;background:rgba(0,0,0,.05)}
+  .reading-menu .fm-x:hover{color:var(--danger);background:rgba(0,0,0,.05)}
+  @media (pointer: coarse){ .reading-menu .fm-x{opacity:.85} }
   .reading-menu .fm-article.current{font-weight:600;color:#3a5a40}
 </style>
 <div class="welcome-overlay" id="welcomeOverlay" onclick="if(event.target===this)closeWelcome()">
@@ -1862,6 +1904,20 @@ async function loadPdfBytes(id) {
       r.onerror = () => rej(r.error);
     });
   } catch (e) { console.warn('loadPdfBytes', e); return null; }
+}
+
+// Drop one article's cached bytes. The bytes are the only bulky thing a reading
+// owns -- notes and entries are a few KB of text -- so this is what "remove" is
+// actually reclaiming.
+async function deletePdfBytes(id) {
+  try {
+    const db = await _pdfDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('pdfs', 'readwrite');
+      tx.objectStore('pdfs').delete(id);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+    });
+  } catch (e) { console.warn('deletePdfBytes', e); }
 }
 
 // One-time recovery: earlier builds cached PDFs in a store named 'marginalia_pdfs'
@@ -3490,7 +3546,9 @@ function renderReadingPicker() {
   const curId = currentReadingId();
   const items = Object.keys(titles).filter(id => id && id.indexOf('custom:') === 0).map(id => {
     const cur = id === curId ? ' current' : '';
-    return `<button type="button" class="fm-article${cur}" role="option" onclick="switchToReading('${encodeURIComponent(id).replace(/'/g, '%27')}')">${escHtml(titles[id])}</button>`;
+    const enc = encodeURIComponent(id).replace(/'/g, '%27');
+    return `<div class="fm-row"><button type="button" class="fm-article${cur}" role="option" onclick="switchToReading('${enc}')">${escHtml(titles[id])}</button>`
+         + `<button type="button" class="fm-x" title="Remove this reading from your shelf. Your notes and journal entries are kept — reopen the same PDF and they come back." onclick="event.stopPropagation();removeReading('${enc}')">🗑️</button></div>`;
   }).join('');
   menu.innerHTML =
     (items ? `<div class="fm-section-label">Your articles</div>${items}` : `<div class="fm-empty">No articles opened yet.</div>`) +
@@ -3500,6 +3558,34 @@ function renderReadingPicker() {
     `<button type="button" class="fm-action" onclick="openJournalFile()">⤒ Restore journal backup (.json)…</button>` +
     `<div class="fm-sep"></div>` +
     `<button type="button" class="fm-action" onclick="closeReadingMenu();openWelcome()">？ How to use Journaler</button>`;
+}
+
+// Take a reading off the shelf. Deliberately NOT a delete: the margin notes stay,
+// and so do the journal entries -- printJournal reads cr_margin_notes_<id> live when
+// it assembles the submission, so destroying them here would quietly strip the
+// highlights out of a student's graded work weeks after they forgot doing this.
+// The id is derived from the PDF's own title and author, so reopening the same file
+// returns the same id and the notes reappear. Nothing is lost, which is why this
+// needs no confirmation dialog.
+async function removeReading(encId) {
+  const id = decodeURIComponent(encId);
+  let titles = {};
+  try { titles = JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch {}
+  delete titles[id];
+  try { localStorage.setItem('cr_reading_titles', JSON.stringify(titles)); } catch {}
+  // Per-reading view state is derived, not written by the reader: safe to drop.
+  ['cr_prompt_', 'cr_promptweek_', 'cr_promptweek_manual_'].forEach(pre => {
+    try { localStorage.removeItem(pre + id); } catch {}
+  });
+  deletePdfBytes(id);
+  if (id === currentReadingId()) {
+    customText = null; pdfDoc = null; pendingImport = null;
+    const btn = document.getElementById('loadBtn');
+    if (btn) { btn.classList.remove('has-custom'); btn.textContent = 'Open article'; }
+    renderText();
+    loadNotesForActiveReading();
+  }
+  renderReadingPicker();
 }
 
 // Switch to a previously-opened article: its highlights + journal load; the PDF
