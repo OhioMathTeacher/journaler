@@ -770,48 +770,54 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 /* ═══ AI SETTINGS MODAL ═══ */
 .ai-modal-overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65); z-index: 1000;
-  align-items: center; justify-content: center;
+  background: rgba(26,42,64,0.55); z-index: 1000;
+  align-items: center; justify-content: center; padding: 1rem;
 }
 .ai-modal-overlay.open { display: flex; }
+/* Parchment, like every other dialog. This panel was the last dark surface in the app
+   -- a leftover from an older look -- so choosing a model felt like leaving Journaler
+   and arriving somewhere else. The shape is unchanged; only the light is. */
 .ai-modal {
-  background: #1A2738; border: 1px solid rgba(212,168,67,0.2);
-  border-radius: 12px; padding: 1.8rem; width: 500px; max-width: calc(100vw - 2rem);
-  box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+  background: #FFFDF7; color: var(--ink);
+  border: 1px solid var(--comment-border);
+  border-radius: 12px; padding: 1.5rem 1.7rem 0; width: 620px;
+  max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
 }
 .ai-modal h2 {
   font-family: 'Crimson Pro', serif; font-weight: 400;
-  color: #DDD3C0; font-size: 1.3rem; margin-bottom: 1.1rem;
+  color: var(--ink); font-size: 1.35rem; margin-bottom: 0.2rem;
 }
 /* Three tabs by what the model costs the person — Local / $0 / Pay (Own Key).
    The grouping is the point: someone deciding whether they can afford to use
    this should not have to know which company owns which model name. */
 .ai-subtabs {
   display: flex; gap: 0.15rem; align-items: center;
-  border-bottom: 1px solid rgba(255,255,255,0.10); margin-bottom: 1rem;
+  border-bottom: 1px solid var(--comment-border); margin-bottom: 1rem;
 }
 .ai-subtab {
   background: none; border: none; border-bottom: 2px solid transparent;
   margin-bottom: -1px; padding: 0.5rem 0.75rem; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; font-size: 0.78rem; color: #7A7A6A;
+  font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--muted);
   transition: color 0.15s, border-color 0.15s;
 }
-.ai-subtab:hover { color: #DDD3C0; }
-.ai-subtab.on { color: var(--cave-glow); border-bottom-color: var(--cave-glow); }
+.ai-subtab:hover { color: var(--ink); }
+.ai-subtab.on { color: var(--accent); border-bottom-color: var(--accent); }
 /* Always visible, on every tab: what is actually selected right now. Without it
    the tabs hide the answer to the only question the panel exists to answer,
    since the choice may live on a tab you are not looking at. */
 .ai-selected {
   margin-left: auto; padding-right: 0.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; color: #7A7A6A;
+  font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--muted);
 }
-.ai-selected b { color: #DDD3C0; font-weight: 600; }
+.ai-selected b { color: var(--ink); font-weight: 700; }
 .ai-disable {
   background: none; border: none; padding: 0; margin-bottom: 1rem;
-  font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
-  color: #7A7A6A; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.74rem;
+  color: var(--muted); cursor: pointer;
 }
-.ai-disable:hover, .ai-disable.on { color: #DDD3C0; }
+.ai-disable:hover, .ai-disable.on { color: var(--accent); }
 .ai-provider-cards {
   display: grid; grid-template-columns: repeat(2,1fr); gap: 0.6rem;
   margin-bottom: 1.1rem;
@@ -819,76 +825,84 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 /* A tab with one card should not leave a hole in a two-column grid. */
 .ai-provider-cards[data-tab="local"] { grid-template-columns: 1fr; }
 .ai-provider-card {
-  background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08);
+  background: #FBF7EC; border: 1.5px solid var(--comment-border);
   border-radius: 8px; padding: 0.85rem 0.75rem; cursor: pointer;
   transition: all 0.18s; position: relative;
 }
-.ai-provider-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(212,168,67,0.3); }
-.ai-provider-card.selected { border-color: var(--cave-glow); background: rgba(212,168,67,0.08); }
+.ai-provider-card:hover { background: #F6EFDF; border-color: var(--accent-light); }
+.ai-provider-card.selected { border-color: var(--accent); background: rgba(212,168,67,0.12); }
 .ai-card-title {
-  font-family: 'DM Sans', sans-serif; font-weight: 600;
-  font-size: 0.8rem; color: #DDD3C0; margin-bottom: 0.35rem;
+  font-family: 'DM Sans', sans-serif; font-weight: 700;
+  font-size: 0.84rem; color: var(--ink); margin-bottom: 0.35rem;
 }
 .ai-card-desc {
-  font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
-  color: #7A7A6A; line-height: 1.45;
+  font-family: 'DM Sans', sans-serif; font-size: 0.74rem;
+  color: var(--muted); line-height: 1.45;
 }
 .ai-card-badge {
-  font-family: 'DM Sans', sans-serif; font-size: 0.62rem; font-weight: 600;
+  font-family: 'DM Sans', sans-serif; font-size: 0.62rem; font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   display: inline-block; padding: 0.15rem 0.45rem; border-radius: 3px;
   margin-top: 0.55rem;
 }
-.ai-badge-paid { background: rgba(122,59,16,0.35); color: #D4956A; }
-.ai-badge-free { background: rgba(40,120,60,0.3); color: #7EC88A; }
-.ai-badge-none { background: rgba(90,90,90,0.3); color: #888; }
-.ai-badge-groq { background: rgba(60,80,160,0.3); color: #8AABE0; }
+.ai-badge-paid { background: rgba(122,59,16,0.12); color: #7A3B10; }
+.ai-badge-free { background: rgba(47,122,69,0.14); color: #2f7a45; }
+.ai-badge-none { background: rgba(0,0,0,0.06); color: var(--muted); }
+.ai-badge-groq { background: rgba(60,80,160,0.12); color: #3C5099; }
 .ai-key-section { margin-bottom: 1.1rem; }
 .ai-key-label {
   display: flex; justify-content: space-between; align-items: baseline;
-  font-family: 'DM Sans', sans-serif; font-size: 0.66rem; font-weight: 600;
+  font-family: 'DM Sans', sans-serif; font-size: 0.68rem; font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase;
-  color: #7A7A6A; margin-bottom: 0.4rem;
+  color: var(--muted); margin-bottom: 0.4rem;
 }
 .ai-key-label a {
-  text-transform: none; letter-spacing: normal; font-weight: 500;
-  color: var(--cave-glow); text-decoration: none;
+  text-transform: none; letter-spacing: normal; font-weight: 600;
+  color: var(--accent); text-decoration: none;
 }
 .ai-key-label a:hover { text-decoration: underline; }
 .ai-key-section input {
   width: 100%; padding: 0.6rem 0.75rem;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(212,168,67,0.2);
-  border-radius: 5px; color: #DDD3C0; font-family: monospace;
-  font-size: 0.82rem; outline: none; margin-bottom: 0.35rem;
+  background: #fff; border: 1px solid var(--comment-border);
+  border-radius: 6px; color: var(--ink); font-family: monospace;
+  font-size: 0.85rem; outline: none; margin-bottom: 0.35rem;
 }
-.ai-key-section input:focus { border-color: rgba(212,168,67,0.5); }
+.ai-key-section input:focus { border-color: var(--accent-light); }
 .ai-key-section select {
   width: 100%; padding: 0.6rem 0.75rem;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(212,168,67,0.2);
-  border-radius: 5px; color: #DDD3C0;
-  font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none;
+  background: #fff; border: 1px solid var(--comment-border);
+  border-radius: 6px; color: var(--ink);
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none;
   cursor: pointer; appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23D4A843' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237A3B10' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 0.75rem center;
   padding-right: 2rem;
 }
-.ai-key-section select:focus { border-color: rgba(212,168,67,0.5); }
+.ai-key-section select:focus { border-color: var(--accent-light); }
 .ai-key-hint {
-  font-family: 'DM Sans', sans-serif; font-size: 0.7rem;
-  color: #555A50; line-height: 1.4;
+  font-family: 'DM Sans', sans-serif; font-size: 0.74rem;
+  color: var(--muted); line-height: 1.45;
 }
-.ai-key-hint a { color: var(--cave-glow); text-decoration: none; }
+.ai-key-hint a { color: var(--accent); text-decoration: none; }
 .ai-key-hint a:hover { text-decoration: underline; }
-.ai-modal-actions { display: flex; gap: 0.5rem; }
+/* Save rides at the bottom of the panel rather than at the bottom of the content.
+   On a short screen the provider cards and the key field are taller than the glass,
+   and a Save button you have to go looking for reads as a dialog with no way out. */
+.ai-modal-actions {
+  display: flex; gap: 0.5rem;
+  position: sticky; bottom: 0; z-index: 2;
+  background: #FFFDF7; padding: 0.75rem 0 1.1rem;
+  box-shadow: 0 -8px 12px -8px rgba(0,0,0,.18);
+}
 .ai-modal-actions button {
-  font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500;
-  padding: 0.5rem 1.1rem; border-radius: 5px; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600;
+  padding: 0.55rem 1.1rem; border-radius: 7px; border: none; cursor: pointer;
   transition: background 0.15s;
 }
-.am-save { background: var(--cave-glow); color: var(--cave-dark); flex: 1; }
-.am-save:hover { background: #E0B84E; }
-.am-cancel { background: rgba(255,255,255,0.06); color: #9A9083; }
-.am-cancel:hover { background: rgba(255,255,255,0.12); }
+.am-save { background: #2f5233; color: #fff; flex: 1; }
+.am-save:hover { background: #3a6440; }
+.am-cancel { background: transparent; color: var(--accent); border: 1px solid var(--comment-border); }
+.am-cancel:hover { background: rgba(212,168,67,0.12); }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 860px) {
@@ -902,6 +916,50 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .header-inner { flex-direction: column; }
   .header-right { align-items: flex-start; }
   .instructions { text-align: left; }
+}
+/* Hidden by default and switched on inside the portrait media query below. These
+   base rules MUST come first: the override lives in a media query but carries the
+   same specificity, so if `display:none` were declared afterwards it would win and
+   the toggle would never appear at all -- which is exactly what happened. */
+.pane-back { display: none; }
+/* An iPad held upright is 834px wide, which trips the phone rule above and stacks the
+   header into a column: title, tagline, a two-line hint, then the toolbar. That is half
+   the glass gone before the article starts. Turned sideways the same iPad is over
+   1000px and never sees it, which is why this only shows up in portrait.
+   On a touch screen the tagline and the hint are the first things to go -- the same
+   guidance is in the welcome card and on every button as a tooltip, and neither earns
+   a third of the page. The toolbar stays a row and wraps only if it must. */
+@media (pointer: coarse) and (max-width: 950px) {
+  .site-header { padding: 0.6rem 0.9rem 0.55rem; }
+  .subtitle, .instructions { display: none; }
+  .header-inner { flex-direction: row; align-items: center; justify-content: space-between; gap: 0.4rem 0.7rem; }
+  .header-right { align-items: center; flex-direction: row; flex-wrap: wrap; gap: 0.4rem; }
+  .title-select { font-size: 1.1rem; }
+  .text-column { padding: 1rem 0.9rem; }
+  /* One pane at a time. Whichever is hidden is hidden completely, so the visible one
+     gets the full width and the page scrolls only as far as that pane is tall. */
+  .pane-back { display: inline-flex; }
+  /* Behave like the desktop, because an iPad is not a phone.
+     The 860px rule above hands the whole page to the browser to scroll, which is right
+     on a phone and wrong here: the blue bar and the view bar ride away with the
+     article, taking Mark passage, Notes and the page controls with them -- the very
+     things a reader reaches for WHILE reading. Desktop never had this problem because
+     it pins the viewport and scrolls the columns inside it. So does portrait now. */
+  body { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+  .main-container { flex: 1 1 auto; min-height: 0; height: auto; }
+  .text-column { max-height: none; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  body.pane-notes .comment-column { max-height: none; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* The bar's own sticky offset is tuned to the desktop column's -1.6rem margins;
+     this column has less padding, so the numbers have to agree or it parks itself
+     partly off the top. `body` prefix only to outrank the base rule, which is
+     declared later in the stylesheet. */
+  body .pdf-viewbar { top: -1rem; margin: -1rem -0.9rem 0.8rem; z-index: 6; }
+  /* The notes can be long; the way back must not scroll away with them. */
+  .margin-header { position: sticky; top: 0; z-index: 5; background: var(--margin-bg);
+                   padding-top: 0.2rem; padding-bottom: 0.4rem; }
+  body.pane-notes .text-column { display: none; }
+  body:not(.pane-notes) .comment-column { display: none; }
+  body.pane-notes .comment-column { max-height: none; border-top: 0; }
 }
 
 /* ═══ LOAD TEXT BUTTON ═══ */
@@ -1040,8 +1098,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <!-- AI Settings Modal -->
 <div class="ai-modal-overlay" id="aiModalOverlay" onclick="if(event.target===this)closeAIModal()">
   <div class="ai-modal">
-    <h2>Socrates</h2>
-    <p style="font-family:'DM Sans',sans-serif;font-size:0.78rem;color:#7A7A6A;margin:-0.6rem 0 1.1rem">Choose which model gives Socrates his voice. He reads alongside you.</p>
+    <h2>AI Models</h2>
+    <p style="font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--muted);margin:0 0 1.1rem">Choose which model gives Todd-in-a-Can his voice. He reads alongside you.</p>
     <div class="ai-subtabs" id="aiSubTabs">
       <button type="button" class="ai-subtab on" data-ai="local" onclick="selectAITab('local')">Local</button>
       <button type="button" class="ai-subtab" data-ai="free" onclick="selectAITab('free')">$0</button>
@@ -1100,12 +1158,29 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <button type="button" class="ai-preset" onclick="applyCustomPreset('openrouter')">OpenRouter</button>
         <button type="button" class="ai-preset" onclick="applyCustomPreset('groq')">Groq</button>
       </div>
-      <input type="text" id="aiCustomEndpoint" placeholder="Base URL, e.g. https://api.openai.com/v1" autocomplete="off" spellcheck="false">
-      <input type="text" id="aiCustomModel" placeholder="Model, e.g. gpt-4o-mini" autocomplete="off" spellcheck="false">
+      <!-- Once a preset fills these, they are two editable boxes showing values the
+           student will never change, eating the height the key field needs. So they
+           collapse to a line of plain text with a way back in for anyone who does
+           need a different model. -->
+      <!-- Who is this company? A student picking between four unfamiliar names deserves
+           a sentence on each, and one of them needs saying out loud: Groq is not Grok. -->
+      <div class="ai-custom-about" id="aiCustomAbout" style="display:none"></div>
+      <div class="ai-custom-summary" id="aiCustomSummary" style="display:none">
+        <span id="aiCustomSummaryText"></span>
+        <button type="button" class="ai-custom-change" onclick="showCustomFields()">Change</button>
+      </div>
+      <div id="aiCustomFields">
+        <input type="text" id="aiCustomEndpoint" placeholder="Base URL, e.g. https://api.openai.com/v1" autocomplete="off" spellcheck="false">
+        <input type="text" id="aiCustomModel" placeholder="Model, e.g. gpt-4o-mini" autocomplete="off" spellcheck="false">
+      </div>
       <!-- The quotes here were backslash-escaped, which is a JS syntax error inside
            an HTML attribute: Enter and Escape did nothing in this field only. -->
+      <!-- "Get a key ↗" rides on the field's own label here too. Without it this pane
+           asked a student for an API key and said nothing about where one comes from,
+           while the $0 pane one tab over held their hand the whole way. -->
+      <label class="ai-key-label" id="aiCustomKeyLabel" for="aiCustomKey"></label>
       <input type="password" id="aiCustomKey" placeholder="API key…" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')saveAISettings();if(event.key==='Escape')closeAIModal()">
-      <div class="ai-key-hint">Pick a preset or type any OpenAI-compatible endpoint. For Alkimi, use its base URL + your Alkimi key. Stored only in your browser.</div>
+      <div class="ai-key-hint" id="aiCustomHint"></div>
     </div>
     <!-- Turning Socrates off is a quiet footer, not a card. As a card it competed
          with the models for attention on every tab; as a footer it is still one
@@ -1303,9 +1378,22 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   #capturePopup{z-index:1500}
   #captureModeBtn.has-custom{background:#3a5a40;color:#fff}
   .ai-preset-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.55rem}
-  .ai-preset{background:rgba(255,255,255,.08);color:#e8dcc8;border:1px solid rgba(255,255,255,.15);border-radius:5px;padding:.32rem .62rem;font-size:.78rem;cursor:pointer;font-family:'DM Sans',sans-serif}
-  .ai-preset:hover{background:rgba(212,168,67,.18)}
-  #aiCustomSection input{width:100%;box-sizing:border-box;margin-bottom:.4rem;padding:.55rem .7rem;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:#f0ead9;font-size:.85rem;font-family:inherit}
+  /* These lived in a different style block than the rest of the dialog, so re-theming
+     the modal left them behind: pale text on a pale panel, which is invisible rather
+     than merely ugly. Same parchment palette as every other control now. */
+  .ai-preset{background:#FBF7EC;color:var(--accent);border:1px solid var(--comment-border);border-radius:6px;padding:.34rem .66rem;font-size:.78rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+  .ai-preset:hover{background:rgba(212,168,67,.16);border-color:var(--accent-light)}
+  .ai-custom-summary{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin-bottom:.55rem;
+    font-family:'DM Sans',sans-serif;font-size:.78rem;color:var(--muted);line-height:1.5}
+  .ai-custom-summary b{color:var(--ink);font-weight:600}
+  .ai-custom-change{background:none;border:0;padding:0;font:inherit;font-size:.76rem;
+    color:var(--accent);text-decoration:underline;cursor:pointer}
+  .ai-custom-about{font-family:'DM Sans',sans-serif;font-size:.8rem;line-height:1.55;
+    color:var(--ink);background:#FBF7EC;border-left:3px solid var(--accent-light);
+    border-radius:0 6px 6px 0;padding:.6rem .75rem;margin:0 0 .6rem}
+  #aiCustomSection input{width:100%;box-sizing:border-box;margin-bottom:.4rem;padding:.55rem .7rem;border-radius:6px;border:1px solid var(--comment-border);background:#fff;color:var(--ink);font-size:.85rem;font-family:inherit}
+  #aiCustomSection input:focus{outline:none;border-color:var(--accent-light)}
+  #aiCustomSection input::placeholder{color:#A79C89}
   .hl-image{max-width:100%;border-radius:4px;margin-bottom:.45rem;border:1px solid rgba(0,0,0,.12);display:block}
     .hl-comment{font-size:.85rem;line-height:1.45;margin-top:.35rem;color:#4a4638}
   .tic-block{margin-bottom:.9rem}
@@ -1492,6 +1580,10 @@ button.cal-cell.selected .cal-dot { background: #fff; }
         <span class="margin-header-subtitle" data-i18n="personalAuto">Personal — Auto-saved</span>
       </div>
       <div class="margin-header-actions">
+        <!-- The mirror of Notes in the view bar. Without it the notes pane is a room
+             with the door painted over: the view bar it came from lives inside the
+             article column, and that column is hidden while these notes are showing. -->
+        <button class="margin-header-btn pane-back" onclick="setPane('article')" title="Back to the article">‹ Article</button>
         <button class="margin-header-btn" id="clearNotesBtn" onclick="clearMarginNotes()" data-i18n="clear" data-i18n-title="clearTitle" title="Clear all margin notes">✕ Clear</button>
         <span class="comment-count" id="commentCount" style="display:none">0</span>
       </div>
@@ -1507,7 +1599,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 
 <div class="selection-popup" id="selectionPopup">
   <div class="popup-passage" id="popupPassage"></div>
-  <input type="text" id="popupInput" placeholder="Ask Socrates about this passage…" data-i18n-ph="popupPlaceholder" autocomplete="off">
+  <input type="text" id="popupInput" placeholder="Ask Todd-in-a-Can about this passage…" data-i18n-ph="popupPlaceholder" autocomplete="off">
   <div class="popup-quick">
     <button class="popup-chip" onclick="askAboutSelection('Explain this passage in plain language.')" data-i18n="explainSimply">Explain simply</button>
     <button class="popup-chip" onclick="askAboutSelection('Take me deeper into this passage.')" data-i18n="goDeeper">Go deeper</button>
@@ -2120,9 +2212,17 @@ function dedupeTextItems(items) {
   return out;
 }
 
+let _pdfRenderDeferred = false;
 async function renderPdf() {
   const doc = pdfDoc;
   if (!doc) return;
+  // Measuring a HIDDEN column returns 0, and the scale floor turns that into a
+  // thumbnail. In portrait the Notes pane hides the article, and iOS fires `resize`
+  // every time Safari's toolbar slides during a scroll -- so the article was being
+  // re-rendered tiny while nobody was looking at it, and that render was what came
+  // back when you tapped "Go to p. N". Defer instead, and redo it when the column
+  // has a width again.
+  if (!textCol.clientWidth) { _pdfRenderDeferred = true; return; }
   // The article's OWN page numbers, not the render index. A JSTOR offprint starts
   // at 534, and "p. 534" is the number the student, the citation and Todd all use;
   // "p. 1" would be useless for finding or scoring anything. Most published PDFs
@@ -2225,6 +2325,26 @@ async function renderPdf() {
   layoutMarginNotes();
 }
 
+// Which pane a narrow screen is showing. Notes are not a second thought here -- they
+// are the reason for marking a passage -- so they get the whole width when chosen
+// rather than a strip at the bottom of a very long article.
+function setPane(which) {
+  const notes = which === 'notes';
+  document.body.classList.toggle('pane-notes', notes);
+  const a = document.getElementById('paneArticle'), n = document.getElementById('paneNotes');
+  if (a) a.classList.toggle('on', !notes);
+  if (n) n.classList.toggle('on', notes);
+  if (notes) { const c = document.getElementById('commentColumn'); if (c) c.scrollTop = 0; return; }
+  // Back to the article: redo any render that was skipped while this column had no
+  // width. Waiting a frame first, because the class has only just been removed and
+  // clientWidth is still 0 until the browser lays it out again.
+  if (typeof scheduleMarginLayout === 'function') scheduleMarginLayout();
+  if (_pdfRenderDeferred && pdfDoc && customText && customText.isPdf) {
+    _pdfRenderDeferred = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => renderPdf()));
+  }
+}
+
 // The strip above the article: where you are, and how much of it you can see. Built
 // here rather than in the header because renderPdf owns textCol.innerHTML and would
 // wipe anything placed inside it -- and because in focus mode the header is gone,
@@ -2266,8 +2386,13 @@ function buildViewBar(doc) {
     (COARSE_POINTER
       ? '<button class="vbtn vb-capture' + (marqueeArmed ? ' on' : '') + '" id="vbCapture" title="Tap, then drag a box around the passage you want to keep. Scrolling comes back as soon as the box is drawn.">' +
         (marqueeArmed ? '✕ Cancel' : '▣ Mark passage') + '</button>'
-      : '');
+      : '')
+    // The header can be hidden; this strip cannot. In portrait, where only one pane
+    // shows at a time, the way to the notes belongs HERE -- above the article and
+    // always on screen -- not in a bar the reader has just chosen to put away.
+    + (COARSE_POINTER ? '<button class="vbtn" id="vbNotes" title="Your margin notes for this reading.">\u{1F5D2} Notes</button>' : '');
   bar.querySelector('#vbCapture') && (bar.querySelector('#vbCapture').onclick = () => setMarqueeArmed(!marqueeArmed));
+  bar.querySelector('#vbNotes') && (bar.querySelector('#vbNotes').onclick = () => setPane('notes'));
   bar.querySelector('#pgPrev') && (bar.querySelector('#pgPrev').onclick = () => turnPage(-1));
   bar.querySelector('#pgNext') && (bar.querySelector('#pgNext').onclick = () => turnPage(1));
   bar.querySelector('#vmSingle').onclick = () => {
@@ -2444,6 +2569,16 @@ function noteMarkAt(x, y) {
 function revealNote(id) {
   const card = document.getElementById('comment-' + id);
   if (!card) return;
+  // The mirror of the jump above: tapping a highlight while the article fills a
+  // portrait screen has to bring the notes back, or the card flashes out of sight.
+  // Asked of the media query directly -- an earlier version tested an element that has
+  // since moved into the view bar, so the check was quietly always false.
+  if (COARSE_POINTER && window.matchMedia('(max-width: 950px)').matches
+      && !document.body.classList.contains('pane-notes')) {
+    setPane('notes');
+    setTimeout(() => revealNote(id), 80);
+    return;
+  }
   const col = document.getElementById('commentColumn');
   const cr = card.getBoundingClientRect(), br = col.getBoundingClientRect();
   const offScreen = cr.bottom < br.top + 2 || cr.top > br.bottom - 2;
@@ -2535,6 +2670,15 @@ function paintNoteMarks() {
 function jumpToNote(id) {
   const c = comments.find(x => x.id === id);
   if (!c || !c.anchor || !c.anchor.page) return;
+  // Portrait shows ONE pane at a time, so "Go to p. N" tapped from the notes has to
+  // bring the article back before it can scroll to anything: a display:none column
+  // scrolls nowhere, and the flash would land on a page nobody can see. The wait is
+  // for layout to settle now that the column has a size again.
+  if (document.body.classList.contains('pane-notes')) {
+    setPane('article');
+    setTimeout(() => jumpToNote(id), 80);
+    return;
+  }
   // In a paged view the passage is usually not on screen -- that is the normal case,
   // not a failure. Turn to its page and finish the jump after the render, or the click
   // would do nothing, which reads as a broken note.
@@ -2669,7 +2813,12 @@ function openCapturePopup(text, boxRect) {
   pop.style.visibility = 'hidden'; pop.style.display = 'block';   // measurable, not yet seen
   placeCapturePopup();
   pop.style.visibility = '';
-  setTimeout(() => input.focus(), 50);
+  // iOS opens the keyboard ONLY when focus() runs inside the gesture that opened the
+  // dialog. Deferring it by 50ms focused the field and left the keyboard shut, so on an
+  // iPad this was a note box you could not type into -- the caret was even in it. The
+  // timeout stays as a fallback for anything that opens this outside a gesture.
+  try { input.focus(); } catch (e) {}
+  setTimeout(() => { if (document.activeElement !== input) input.focus(); }, 50);
 }
 let captureBox = null;   // the marquee this dialog belongs to, for re-placing as it grows
 // Put the dialog where it fits, MEASURED rather than assumed. This used to test the
@@ -2681,18 +2830,33 @@ function placeCapturePopup() {
   const b = captureBox;
   if (!pop || !b || getComputedStyle(pop).display === 'none') return;
   const h = pop.offsetHeight, w = pop.offsetWidth, M = 8;
+  // The visual viewport is what the reader can actually SEE. When the iOS keyboard
+  // opens, window.innerHeight does not change -- so a dialog placed against it sits
+  // happily underneath the keyboard, which is indistinguishable from not opening.
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width  : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+  const offY = vv ? vv.offsetTop  : 0;
+  const offX = vv ? vv.offsetLeft : 0;
   let left = b.left;
-  if (left + w > window.innerWidth - M) left = window.innerWidth - w - M;
-  if (left < M) left = M;
+  if (left + w > offX + vw - M) left = offX + vw - w - M;
+  if (left < offX + M) left = offX + M;
   // Below the passage by preference, above it if it will not fit, and pinned inside the
   // viewport if it fits in neither -- covering some of the page beats being unreachable.
   let top = b.bottom + M;
-  if (top + h > window.innerHeight - M) {
+  if (top + h > offY + vh - M) {
     const above = b.top - h - M;
-    top = (above >= M) ? above : Math.max(M, window.innerHeight - h - M);
+    top = (above >= offY + M) ? above : Math.max(offY + M, offY + vh - h - M);
   }
   pop.style.left = Math.round(left) + 'px';
   pop.style.top = Math.round(top) + 'px';
+}
+// The keyboard sliding up is a viewport change, not a window resize, so this is the
+// only event that fires. Without it the dialog stays where it was and the keyboard
+// covers it the moment the student starts typing.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => placeCapturePopup());
+  window.visualViewport.addEventListener('scroll', () => placeCapturePopup());
 }
 // Grow the field to fit what has been written, then re-place the dialog, because growing
 // downwards is exactly how it would walk off the bottom edge. The CSS max-height takes
@@ -2772,7 +2936,7 @@ const STRINGS = {
     showBar: '⤢ Show bar', chooseReading: 'Choose a reading', uiLangTitle: 'Interface language',
     marginNotes: 'Your Notes', personalAuto: 'Personal — Auto-saved', clear: '✕ Clear', clearTitle: 'Clear all margin notes',
     emptyStateHtml: "Mark what strikes you as you read, and say why.<br>Drag a box around a passage, then write your note — no AI needed.<br>Your notes collect here.",
-    popupPlaceholder: 'Ask Socrates about this passage…', explainSimply: 'Explain simply', goDeeper: 'Go deeper', giveExample: 'Give an example',
+    popupPlaceholder: 'Ask Todd-in-a-Can about this passage…', explainSimply: 'Explain simply', goDeeper: 'Go deeper', giveExample: 'Give an example',
     toFreewrite: '→ Freewrite', cancel: 'Cancel', ask: 'Ask',
     nbSub: 'Write your entry here. Ask Todd-in-a-Can to press your thinking. Save a dated entry when it is ready.',
     tabThisReading: 'This reading', tabCalendar: '📅 Calendar', tabByReading: 'By reading',
@@ -3416,6 +3580,8 @@ function _refreshKeySection() {
       document.getElementById('aiCustomEndpoint').value = localStorage.getItem(CUSTOM_ENDPOINT_KEY) || '';
       document.getElementById('aiCustomModel').value = localStorage.getItem(CUSTOM_MODEL_KEY) || '';
       document.getElementById('aiCustomKey').value = getStoredKey('custom') ? '••••••••••••••••' : '';
+      _refreshCustomKeyHelp(_presetForEndpoint(localStorage.getItem(CUSTOM_ENDPOINT_KEY)));
+      _syncCustomKeyVisibility();
     }
     return;
   }
@@ -3433,7 +3599,7 @@ function _refreshKeySection() {
     gemini: {
       title: 'Gemini 2.5 Flash', placeholder: 'AIza…',
       url: 'https://aistudio.google.com/app/apikey',
-      hint: '<strong style="color:#D4A843">Use a personal Gmail, not a school account</strong> — school accounts are usually blocked from AI Studio. Stored only in your browser. Never shared.',
+      hint: '<strong style="color:var(--accent)">Use a personal Gmail, not a school account</strong> — school accounts are usually blocked from AI Studio. Stored only in your browser. Never shared.',
     },
     groq: {
       title: 'Groq', placeholder: 'gsk_…',
@@ -3491,19 +3657,113 @@ function saveAISettings() {
   updateAIBtn();
 }
 
+// Endpoint, model, AND where the key comes from. A preset that fills two fields and
+// leaves the third a mystery is not much of a preset -- the key is the only part a
+// student cannot guess, and it is the part that costs money if they pick wrong.
+const CUSTOM_PRESETS = {
+  openai:     { name: 'ChatGPT (OpenAI)', ep: 'https://api.openai.com/v1',      model: 'gpt-4o-mini',
+                url: 'https://platform.openai.com/api-keys',
+                about: 'The company behind ChatGPT. This connects to their GPT models directly rather than through the ChatGPT website — gpt-4o-mini is the small, cheap one, and it is plenty for talking about a reading.',
+                note: 'Paid: you add a few dollars of credit first, then create a key. A ChatGPT Plus subscription is separate and does NOT include this.' },
+  deepseek:   { name: 'DeepSeek',         ep: 'https://api.deepseek.com/v1',    model: 'deepseek-chat',
+                url: 'https://platform.deepseek.com/api_keys',
+                about: 'A Chinese company whose models are unusually capable for what they cost. Worth knowing before you choose it: what you type here is sent to their servers in China, like any hosted model sends your words to whoever runs it.',
+                note: 'Paid, and among the cheapest. Sign up, add credit, then create a key.' },
+  openrouter: { name: 'OpenRouter',       ep: 'https://openrouter.ai/api/v1',   model: 'meta-llama/llama-3.3-70b-instruct',
+                url: 'https://openrouter.ai/keys',
+                about: 'Not a model of its own — a switchboard. One key reaches models from many different companies, and you choose which by name. Useful if you want to try several without signing up for each.',
+                note: 'Some models on it are free; others bill your account. Sign in with Google or GitHub, then create a key.' },
+  // llama-3.3-70b-versatile stopped being served on 16 August 2026. This preset
+  // fills the model field, so a retired id here hands the user a broken setup.
+  groq:       { ep: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b', name: 'Groq',
+                url: 'https://console.groq.com/keys',
+                about: 'Groq is NOT Grok. Different company, different spelling, no connection to Elon Musk or X. Groq builds computer chips that run other companies\u2019 open models very fast — the speed is the point, and the models are not its own.',
+                note: 'Free tier, any email — no Google account needed. This is the same key as the $0 tab.' }
+};
 function applyCustomPreset(name) {
-  const P = {
-    openai:     { ep: 'https://api.openai.com/v1',      model: 'gpt-4o-mini' },
-    deepseek:   { ep: 'https://api.deepseek.com/v1',    model: 'deepseek-chat' },
-    openrouter: { ep: 'https://openrouter.ai/api/v1',   model: 'meta-llama/llama-3.3-70b-instruct' },
-    // llama-3.3-70b-versatile stopped being served on 16 August 2026. This preset
-    // fills the model field, so a retired id here hands the user a broken setup.
-    groq:       { ep: 'https://api.groq.com/openai/v1', model: 'openai/gpt-oss-120b' }
-  }[name];
+  const P = CUSTOM_PRESETS[name];
   if (!P) return;
   document.getElementById('aiCustomEndpoint').value = P.ep;
   document.getElementById('aiCustomModel').value = P.model;
+  _refreshCustomKeyHelp(name);
+  _syncCustomKeyVisibility(true);
   document.getElementById('aiCustomKey').focus();
+}
+// Anyone who needs a different model gets the boxes back; nobody else has to look
+// at them. The values stay live in the inputs either way, so Save is unaffected.
+function showCustomFields() {
+  const f = document.getElementById('aiCustomFields');
+  const sum = document.getElementById('aiCustomSummary');
+  if (f) f.style.display = 'block';
+  if (sum) sum.style.display = 'none';
+  _syncCustomKeyVisibility(true);
+  const ep = document.getElementById('aiCustomEndpoint');
+  if (ep) ep.focus();
+}
+// A key box with nothing to attach it to is just a question with no context. It
+// appears once the student has said which service they are keying into.
+function _syncCustomKeyVisibility(force) {
+  const key = document.getElementById('aiCustomKey');
+  const label = document.getElementById('aiCustomKeyLabel');
+  const chosen = force
+    || !!(localStorage.getItem(CUSTOM_ENDPOINT_KEY) || '').trim()
+    || !!(document.getElementById('aiCustomEndpoint') || {}).value;
+  if (key) key.style.display = chosen ? '' : 'none';
+  if (label) label.style.display = chosen ? '' : 'none';
+}
+// Which preset is this endpoint? Reopening the dialog should show the same help the
+// student saw when they set it up, not a blank label.
+function _presetForEndpoint(ep) {
+  const clean = (ep || '').trim().replace(/\/+$/, '');
+  return Object.keys(CUSTOM_PRESETS).find(k => CUSTOM_PRESETS[k].ep === clean) || null;
+}
+function _refreshCustomKeyHelp(which) {
+  const label = document.getElementById('aiCustomKeyLabel');
+  const hint  = document.getElementById('aiCustomHint');
+  const about = document.getElementById('aiCustomAbout');
+  if (!label || !hint) return;
+  const P = which && CUSTOM_PRESETS[which];
+  // A recognised preset shows its endpoint and model as text; anything else keeps
+  // the editable pair, because then the values are the student's own.
+  const fields = document.getElementById('aiCustomFields');
+  const sum = document.getElementById('aiCustomSummary');
+  const sumText = document.getElementById('aiCustomSummaryText');
+  // Three states, not two. A recognised preset shows as a line of text; an endpoint
+  // the student typed themselves keeps its boxes, because those values are theirs;
+  // and nothing chosen yet shows NEITHER -- two empty boxes asking for a base URL is
+  // a question most students cannot answer, and they vanished the moment anyone
+  // clicked a preset, which made the panel look broken.
+  const stored = (localStorage.getItem(CUSTOM_ENDPOINT_KEY) || '').trim();
+  if (fields && sum && sumText) {
+    if (P) {
+      sumText.innerHTML = '<b>' + escHtml(P.name) + '</b> \u00b7 ' + escHtml(P.model)
+                        + ' \u00b7 <span>' + escHtml(P.ep.replace(/^https?:\/\//, '')) + '</span>';
+      sum.style.display = 'flex'; fields.style.display = 'none';
+    } else if (stored) {
+      sum.style.display = 'none'; fields.style.display = 'block';
+    } else {
+      sum.style.display = 'none'; fields.style.display = 'none';
+    }
+  }
+  label.innerHTML = '';
+  label.appendChild(document.createTextNode(P ? 'API key for ' + P.name : 'API key'));
+  if (P) {
+    const a = document.createElement('a');
+    a.href = P.url; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = 'Get a key ↗';
+    label.appendChild(a);
+    if (about) { about.textContent = P.about || ''; about.style.display = P.about ? '' : 'none'; }
+    hint.innerHTML = escHtml(P.note) + ' Stored only in your browser \u00b7 never in the source code.';
+  } else {
+    if (about) { about.textContent = ''; about.style.display = 'none'; }
+    // Nothing chosen yet: say what to do, and keep the manual route one click away
+    // rather than permanently on screen.
+    hint.innerHTML = stored
+      ? 'Your own endpoint. Use that service\u2019s own key. Stored only in your browser.'
+      : 'Pick one of the four above \u2014 you\u2019ll get a short description and a link '
+        + 'to create a key. Or <button type="button" class="ai-custom-change" onclick="showCustomFields()">'
+        + 'enter another endpoint</button> if you have one.';
+  }
 }
 
 // ═══════════════════════════════════
@@ -3811,7 +4071,11 @@ const APP_VERSION = '2026-08-27 · build 36';   // ⚠ bump on every deploy
     const b = document.createElement('div');
     b.id = 'buildTag'; b.textContent = APP_VERSION;
     b.title = 'Journaler build — hover to confirm the loaded code version';
-    b.style.cssText = 'position:fixed;bottom:6px;right:8px;z-index:3000;font:11px/1.4 ui-monospace,monospace;'
+    // bottom:6px puts this underneath Safari's toolbar on an iPad, where it is
+    // invisible -- and the whole point of the badge is telling, at a glance and
+    // without opening Settings, whether the code in front of you is the code that
+    // was shipped. env() lifts it clear of the toolbar and the home indicator.
+    b.style.cssText = 'position:fixed;bottom:calc(6px + env(safe-area-inset-bottom,0px));right:calc(8px + env(safe-area-inset-right,0px));z-index:3000;font:11px/1.4 ui-monospace,monospace;'
       + 'color:#8a8175;background:rgba(250,247,240,.82);border:1px solid rgba(0,0,0,.08);'
       + 'padding:2px 7px;border-radius:6px;pointer-events:none';
     document.body.appendChild(b);
@@ -3846,7 +4110,7 @@ function renderSettings() {
             Talking with him is one way to reach your response \u2014 not the only way.</p>
        </div><span class="set-status">${on ? `<span class="on">${esc(gearAILabel())}</span>` : '<span class="off">Off</span>'}</span></div>`
     + `<div class="set-row"><div class="set-row-text">
-         <h3>Choose a model</h3>
+         <h3>Choose an AI Model</h3>
          <p>Run one locally, or connect a hosted model with your own key. Nothing you write is uploaded
             unless you send it to the partner yourself.</p>
        </div><button class="set-btn" onclick="closeSettings();openAIModal()">Choose\u2026</button></div>`;
@@ -3979,6 +4243,10 @@ if (localStorage.getItem('cr_header_collapsed') === '1') document.body.classList
 let _resizeT = null;
 window.addEventListener('resize', () => {
   if (!(pdfDoc && customText && customText.isPdf)) return;
+  // iOS fires this whenever Safari's toolbar slides, which happens constantly while
+  // scrolling the notes -- and re-rendering an article that is not on screen is both
+  // wasted work and, since a hidden column measures 0, actively wrong.
+  if (!textCol.clientWidth) { _pdfRenderDeferred = true; return; }
   clearTimeout(_resizeT);
   _resizeT = setTimeout(() => renderPdf(), 220);
   scheduleMarginLayout();   // the column moved now, not in 220ms
@@ -4027,6 +4295,17 @@ function handleSelectionPopup(e) {
 textCol.addEventListener('scroll', scheduleMarginLayout, { passive: true });
 textCol.addEventListener('mouseup', handleSelectionPopup);
 commentList.addEventListener('mouseup', handleSelectionPopup);
+// Tapping a highlight to find its note lived inside the marquee's pointerup handler --
+// fine with a mouse, where the overlay always listens. On a touch screen the overlay is
+// DISARMED most of the time (that is what gives the reader their scrolling back), so it
+// has pointer-events:none and the tap sails straight past: highlights looked dead. Catch
+// that case on the column itself, and stay out of the way whenever the overlay is live,
+// so a pointing device keeps exactly the behaviour it already had.
+textCol.addEventListener('pointerup', e => {
+  if (_mq) return;                                        // a marquee drag is finishing
+  if (pdfCaptureMode === 'box' && marqueeArmed) return;   // the overlay has this in hand
+  noteMarkAt(e.clientX, e.clientY);
+});
 
 popupInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); }
@@ -4116,7 +4395,7 @@ async function askAI(passage, question, context, lang) {
     if (reading.systemPromptExtra) grounding = '\n\nContext for this reading: ' + reading.systemPromptExtra;
   }
 
-  const sysContext = `You are Socrates, a thinking partner for a pre-service teacher reading "${textRef}" — a professional article about teaching and learning mathematics. You help them think about what they are reading and how it connects to real students and their own teaching; you do not lecture or summarize for them. ${langNote}
+  const sysContext = `You are Todd-in-a-Can, a Socratic thinking partner for a pre-service teacher reading "${textRef}" — a professional article about teaching and learning mathematics. You help them think about what they are reading and how it connects to real students and their own teaching; you do not lecture or summarize for them. ${langNote}
 
 Voice: warm, first person, unhurried. You draw the reader out — one good question put back to them is worth more than a clever answer of your own. Speak plainly. When it helps, connect the reading to what a teacher notices in a real classroom.
 
@@ -4124,9 +4403,9 @@ Hard rule on length: no more than TWO short sentences. Often make the second one
 
   let prompt;
   if (context) {
-    prompt = `${sysContext}\n\nThe conversation so far:\n${context}\n\nTheir follow-up: ${question}\n\nReply as Socrates in ONE or TWO short sentences, building on the thread.`;
+    prompt = `${sysContext}\n\nThe conversation so far:\n${context}\n\nTheir follow-up: ${question}\n\nReply as Todd-in-a-Can in ONE or TWO short sentences, building on the thread.`;
   } else {
-    prompt = `${sysContext}\n\nThe reader highlighted this passage:\n"${passage}"\n\nThey ask: ${question}\n\nReply as Socrates in ONE or TWO short sentences — illuminate it, then perhaps turn one question back to them.`;
+    prompt = `${sysContext}\n\nThe reader highlighted this passage:\n"${passage}"\n\nThey ask: ${question}\n\nReply as Todd-in-a-Can in ONE or TWO short sentences — illuminate it, then perhaps turn one question back to them.`;
   }
 
   return callModel(prompt);
