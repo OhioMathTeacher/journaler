@@ -709,15 +709,28 @@ body.header-collapsed .bar-restore { display: block; }
 .gear-dot.on { background: #58c07a; }
 .set-modal { position: relative; background: #FFFDF7; color: var(--ink);
   border: 1px solid var(--comment-border); border-radius: 12px; padding: 1.3rem 1.8rem 1.6rem;
-  width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem);
+  width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 3rem); max-height: calc(100dvh - 3rem);
   display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.4); }
+/* The scrolling body ends at a hard edge, so a tall tab cut its last row in half and
+   read as a window drawn wrong rather than a list with more below it. A fade into the
+   panel's own cream says "keep going" without adding a scrollbar the platform may or
+   may not draw. Sits above the bottom padding, and never over a control. */
+.set-modal::after { content: ''; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 2rem;
+  border-radius: 0 0 11px 11px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255,253,247,0) 0%, #FFFDF7 78%); }
 .set-tabs { display: flex; flex-wrap: wrap; column-gap: 1.3rem; row-gap: 0;
   border-bottom: 1px solid var(--comment-border); margin: .9rem 0 0; }
 .set-tab { background: none; border: 0; padding: .5rem 0 .55rem; cursor: pointer; font-family:'DM Sans',sans-serif;
   font-size: .95rem; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .set-tab:hover { color: var(--ink); }
 .set-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
-.set-body { overflow-y: auto; padding-top: .3rem; }
+/* flex + min-height:0 is the whole fix for the panel that got cut off: a child
+   with overflow-y:auto still refuses to shrink below its content height inside a
+   flex column unless min-height is zeroed, so a tall tab overflowed .set-modal's
+   max-height instead of scrolling inside it. Every other tab was short enough to
+   hide it. */
+.set-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-top: .3rem;
+  overscroll-behavior: contain; }
 .set-row { display: flex; align-items: flex-start; gap: 1.2rem; justify-content: space-between;
   padding: 1rem 0; border-bottom: 1px solid rgba(0,0,0,.08); }
 .set-row:last-child { border-bottom: 0; }
@@ -741,6 +754,13 @@ body.header-collapsed .bar-restore { display: block; }
    deep red for an error -- Allegory's amber-on-black is unreadable here. */
 .diag-box { border: 1px solid var(--comment-border); border-radius: 10px;
   background: rgba(0,0,0,.02); padding: .9rem 1rem; margin: 1rem 0 1.2rem; }
+/* Nothing to do should not cost three lines. Only "an update is waiting" earns the
+   stacked box, because only that state has anything to say or a button to press. */
+.diag-box.one-line { display: flex; align-items: center; gap: .7rem; padding: .45rem .55rem .45rem .95rem; }
+.diag-box.one-line .diag-box-label { margin: 0; flex: 0 0 auto; }
+.diag-box.one-line .diag-sub { margin: 0; flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diag-box.one-line .diag-ico { margin-left: auto; }
 .diag-box-label { font-family:'DM Sans',sans-serif; font-size: .7rem; font-weight: 700;
   letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: .55rem; }
 .diag-line { display: flex; align-items: flex-start; gap: .5rem;
@@ -789,7 +809,7 @@ body.header-collapsed .bar-restore { display: block; }
 .diag-toggle-meta { font-family:'DM Sans',sans-serif; font-size: .78rem; color: var(--muted); }
 .diag-toggle-meta .flagged { color: #8a5a12; font-weight: 600; }
 .set-row .diag-blurb { margin: .5rem 0 .15rem; }
-.diag-ta { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical;
+.diag-ta { width: 100%; box-sizing: border-box; min-height: 58px; resize: vertical;
   font-family:'DM Sans',sans-serif; font-size: .88rem; line-height: 1.5; color: var(--ink);
   background: var(--comment-bg); border: 1px solid var(--comment-border);
   border-radius: 8px; padding: .55rem .7rem; margin-top: .1rem; }
@@ -4406,22 +4426,16 @@ function renderSettings() {
     + `<div class="set-row stack" style="border-bottom:0;padding-bottom:.4rem">
          <div class="set-row-text">
            <h3>Something not working?</h3>
-           <p>Say what you were doing and what happened instead — which article, what you
-              tapped, what appeared. Everything below travels with it, so you never have to
-              describe your iPad down a phone line.
-              <strong>None of your writing is included:</strong> the report counts your notes
-              and entries, it never copies them, and it never carries an API key.</p>
+           <p>Nothing you have written is included.</p>
          </div>
          <textarea class="diag-ta" id="diagComment" oninput="_diagComment=this.value"
-           placeholder="I tapped ▣ Mark passage on page 3 and no box would draw…">${esc(_diagComment)}</textarea>
+           placeholder="What were you doing, and what happened instead?">${esc(_diagComment)}</textarea>
          <div class="set-actions">
-           <button class="set-btn" onclick="copyDetailsAndEmail(this)">Copy details</button>
-           <button class="set-btn quiet" onclick="printReport()">Save a PDF…</button>
+           <button class="set-btn" onclick="copyDetailsAndEmail(this)"
+             title="Opens an email with a summary already in it, and puts the full report on your clipboard to paste in.">Email Todd</button>
+           <button class="set-btn quiet" onclick="printReport()"
+             title="Prints the whole report so you can attach it. No browser can attach a file to an email on its own \u2014 that part is yours to do.">Save PDF diagnostic report</button>
          </div>
-         <p>“Copy details” puts the whole report on your clipboard and opens an email to
-            Dr. Edwards with a short version already in it — send that, or paste the rest in.
-            A browser cannot attach a file to an email by itself, so if you want the full
-            report attached, save the PDF first and attach it yourself.</p>
        </div>`
     + `<div class="set-row stack">
          <button type="button" class="diag-toggle" id="diagToggle" aria-expanded="${_diagLogOpen}"
@@ -4431,10 +4445,8 @@ function renderSettings() {
            <span class="diag-toggle-meta" id="diagToggleMeta">${diagCountLabel()}</span>
          </button>
          <div id="diagLogWrap" style="display:${_diagLogOpen ? '' : 'none'}">
-           <p class="diag-blurb">A rolling log of what the app has been doing, kept in this browser
-              so it survives a crash or a reload. When something goes wrong, the last few lines are
-              usually the whole story — they are the sentences Journaler would otherwise say only
-              to a developer console.</p>
+           <p class="diag-blurb">What the app has been doing, kept in this browser so it survives
+              a crash. When something goes wrong the last few lines are usually the whole story.</p>
            <div id="diagLog"></div>
          </div>
        </div>`;
@@ -4872,30 +4884,31 @@ function renderUpdateBox() {
   if (!host) return;
   const u = _update;
   const again = `<button class="diag-ico" onclick="checkForUpdate(true)" title="Check again" aria-label="Check again">⟳</button>`;
-  let inner;
-  if (u.state === 'checking') {
-    inner = `<div class="diag-line"><span class="spin">⟳</span> Checking for an update…</div>`;
-  } else if (u.state === 'available') {
-    inner = `<div class="diag-head" style="margin:0">
-               <span class="diag-line new">↑ A newer version is published.</span>${again}
-             </div>
-             <div class="diag-sub">Running ${escHtml(APP_VERSION)}<br>Published ${escHtml(u.latest)}<br>
-               Updating reloads the page. Nothing you have written is touched.</div>
-             <div class="set-actions" style="margin-top:.65rem">
-               <button class="set-btn" onclick="applyUpdate()">Update now</button>
-             </div>`;
-  } else if (u.state === 'error') {
-    inner = `<div class="diag-head" style="margin:0">
-               <span class="diag-line warn">Couldn’t check for an update — ${escHtml(u.message)}.</span>${again}
-             </div>
-             <div class="diag-sub">Being offline is the usual reason. You are running ${escHtml(APP_VERSION)}.</div>`;
-  } else {
-    inner = `<div class="diag-head" style="margin:0">
-               <span class="diag-line ok">✓ You’re up to date.</span>${again}
-             </div>
-             <div class="diag-sub">${escHtml(APP_VERSION)}</div>`;
+  const label = `<span class="diag-box-label">Software updates</span>`;
+  if (u.state === 'available') {
+    // The one state with something to say and something to press.
+    host.innerHTML = `<div class="diag-box">${label}
+      <div class="diag-head" style="margin:0">
+        <span class="diag-line new">↑ A newer version is published.</span>${again}
+      </div>
+      <div class="diag-sub">Running ${escHtml(APP_VERSION)}<br>Published ${escHtml(u.latest)}<br>
+        Updating reloads the page. Nothing you have written is touched.</div>
+      <div class="set-actions" style="margin-top:.65rem">
+        <button class="set-btn" onclick="applyUpdate()">Update now</button>
+      </div></div>`;
+    return;
   }
-  host.innerHTML = `<div class="diag-box"><div class="diag-box-label">Software updates</div>${inner}</div>`;
+  let line;
+  if (u.state === 'checking') {
+    line = `<span class="diag-line"><span class="spin">⟳</span> Checking…</span>`;
+  } else if (u.state === 'error') {
+    line = `<span class="diag-line warn">Couldn’t check</span>`
+         + `<span class="diag-sub">${escHtml(u.message)} · running ${escHtml(APP_VERSION)}</span>`;
+  } else {
+    line = `<span class="diag-line ok">✓ Up to date</span>`
+         + `<span class="diag-sub">${escHtml(APP_VERSION)}</span>`;
+  }
+  host.innerHTML = `<div class="diag-box one-line">${label}${line}${again}</div>`;
 }
 
 // Repaint while the panel is open, so an error that happens with Diagnostics on
