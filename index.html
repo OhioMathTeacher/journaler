@@ -1202,6 +1202,15 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     .textLayer ::selection{background:rgba(90,130,255,.35)}
   .marquee-overlay{position:absolute;inset:0;z-index:3;cursor:crosshair}
   body:not(.marquee-on) .marquee-overlay{cursor:default}
+  /* Only while armed. A touch drag is a SCROLL until the page says otherwise, and
+     preventDefault on pointerdown does not say otherwise -- touch-action is the only
+     thing the browser listens to. Left on permanently it would cost every touch reader
+     the ability to scroll the article, which is a worse bargain than no capture at all. */
+  body.marquee-armed .marquee-overlay{touch-action:none}
+  #marqueeHint{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:60;
+    background:#3a5a40;color:#fff;font-family:'DM Sans',sans-serif;font-size:.9rem;
+    padding:.55rem .95rem;border-radius:8px;box-shadow:0 3px 14px rgba(0,0,0,.32);display:none}
+  .vbtn.vb-capture.on{background:#7A3B10;border-color:#7A3B10;color:#fff}
   .marquee-box{position:absolute;border:1.5px solid #3a5a40;background:rgba(90,150,110,.16);pointer-events:none;z-index:4;border-radius:2px}
   /* The mark sits ABOVE the canvas but BELOW the (transparent) text layer, so the
      words stay selectable and the yellow reads as ink on the page, not a sticker. */
@@ -1442,6 +1451,15 @@ let pendingImport = null;
 let pdfDoc = null;      // loaded PDFDocumentProxy when a PDF is open
 let pdfRenderToken = 0; // guards against interleaved re-renders
 let pdfCaptureMode = 'box'; // 'box' = drag-to-capture · 'select' = native text selection
+// A finger has one gesture and the page wants two of them. The capture overlay covers
+// the whole sheet, so if it is listening, a drag draws a box and the article cannot be
+// scrolled at all -- and if it is not listening, a passage cannot be marked. A mouse
+// never had this problem: it scrolls with a wheel and drags with a button.
+// So on a touch screen the overlay is ARMED only when the reader asks for it: tap Mark
+// passage, draw one box, and scrolling comes straight back. A pointing device keeps the
+// old always-on behaviour, which is what every existing reader already has in their hands.
+const COARSE_POINTER = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+let marqueeArmed = !COARSE_POINTER;
 let captureText = '';
 let captureAnchor = null; // {page, label, x, y, w, h} — page fractions, so zoom-independent
 let pdfPageLabels = null; // the article's printed page numbers, e.g. ['534','535',…]
@@ -2040,7 +2058,7 @@ async function renderPdf() {
     pageDiv.appendChild(tlDiv);
     const overlay = document.createElement('div');
     overlay.className = 'marquee-overlay';
-    overlay.style.pointerEvents = (pdfCaptureMode === 'box') ? 'auto' : 'none';
+    overlay.style.pointerEvents = (pdfCaptureMode === 'box' && marqueeArmed) ? 'auto' : 'none';
     pageDiv.appendChild(overlay);
     attachMarquee(overlay, canvas, tlDiv);
     wrap.appendChild(pageDiv);
@@ -2103,7 +2121,14 @@ function buildViewBar(doc) {
         '">' + (single && pdfSpread === 2 ? 'Two pages' : 'Single page') + '</button>' +
       '<button class="vbtn ' + (single ? '' : 'on') + '" id="vmCont" title="The whole article in one scroll — the original view, and the one that shows every note at once.">Continuous</button>' +
     '</span>' +
-    '<button class="vbtn ' + (pdfFit === 'page' ? 'on' : '') + '" id="vbFit" title="Fit the whole page on screen. Turn this off to size the page with A− and A+ instead.">Fit page</button>';
+    '<button class="vbtn ' + (pdfFit === 'page' ? 'on' : '') + '" id="vbFit" title="Fit the whole page on screen. Turn this off to size the page with A− and A+ instead.">Fit page</button>' +
+    // Only where a finger is the pointer. On a mouse the overlay is always live and
+    // this button would be a switch for something that is already on.
+    (COARSE_POINTER
+      ? '<button class="vbtn vb-capture' + (marqueeArmed ? ' on' : '') + '" id="vbCapture" title="Tap, then drag a box around the passage you want to keep. Scrolling comes back as soon as the box is drawn.">' +
+        (marqueeArmed ? '✕ Cancel' : '▣ Mark passage') + '</button>'
+      : '');
+  bar.querySelector('#vbCapture') && (bar.querySelector('#vbCapture').onclick = () => setMarqueeArmed(!marqueeArmed));
   bar.querySelector('#pgPrev') && (bar.querySelector('#pgPrev').onclick = () => turnPage(-1));
   bar.querySelector('#pgNext') && (bar.querySelector('#pgNext').onclick = () => turnPage(1));
   bar.querySelector('#vmSingle').onclick = () => {
@@ -2155,10 +2180,30 @@ function showPage(n) {
 // image of the region (for figures). Reusable anywhere PDFs are read.
 function setCaptureMode(m) {
   pdfCaptureMode = m;
-  document.querySelectorAll('.marquee-overlay').forEach(o => { o.style.pointerEvents = (m === 'box') ? 'auto' : 'none'; });
+  document.querySelectorAll('.marquee-overlay').forEach(o => { o.style.pointerEvents = (m === 'box' && marqueeArmed) ? 'auto' : 'none'; });
   const btn = document.getElementById('captureModeBtn'); // gone from the bar; kept null-safe
   if (btn) btn.classList.toggle('has-custom', m === 'box');
   document.body.classList.toggle('marquee-on', m === 'box');
+}
+// Arm or disarm the capture overlay. Everything that decides whether a drag draws a
+// box or scrolls the page runs through here, so the two can never disagree: the CSS
+// touch-action, the overlay's pointer-events, and the button's own label.
+function setMarqueeArmed(v) {
+  marqueeArmed = v;
+  document.body.classList.toggle('marquee-armed', v);
+  document.querySelectorAll('.marquee-overlay').forEach(o => {
+    o.style.pointerEvents = (pdfCaptureMode === 'box' && v) ? 'auto' : 'none';
+  });
+  const b = document.getElementById('vbCapture');
+  if (b) { b.classList.toggle('on', v); b.textContent = v ? '✕ Cancel' : '▣ Mark passage'; }
+  let h = document.getElementById('marqueeHint');
+  if (!h && v) {
+    h = document.createElement('div');
+    h.id = 'marqueeHint';
+    h.textContent = 'Drag a box around the passage';
+    document.body.appendChild(h);
+  }
+  if (h) h.style.display = v ? 'block' : 'none';
 }
 // Select mode removed: box is the only way to mark a passage. Native selection over a
 // pdf.js text layer -- absolutely positioned, transparent, one span per run -- drops
@@ -2182,9 +2227,14 @@ function zoomPdf(dir) {
 // started on), so the listeners belong at the window ONCE, with the active drag
 // held in one place.
 let _mq = null;
+// Pointer events, not mouse events. iOS synthesises mousedown/mouseup for a TAP and
+// nothing whatever for a DRAG -- which is exactly the gesture a marquee is -- so on a
+// touch screen box capture was not awkward, it was inert. A touch pointer also gets
+// implicit capture on the element the drag began on, which is the property the window
+// listeners below rely on when the finger slides off the page it started from.
 function attachMarquee(overlay, canvas, textLayerDiv) {
-  overlay.addEventListener('mousedown', e => {
-    if (pdfCaptureMode !== 'box' || e.button !== 0) return;
+  overlay.addEventListener('pointerdown', e => {
+    if (pdfCaptureMode !== 'box' || !marqueeArmed || e.button !== 0 || !e.isPrimary) return;
     document.querySelectorAll('.marquee-box').forEach(b => b.remove());
     const r = overlay.getBoundingClientRect();
     const boxEl = document.createElement('div');
@@ -2196,7 +2246,7 @@ function attachMarquee(overlay, canvas, textLayerDiv) {
     e.preventDefault();
   });
 }
-window.addEventListener('mousemove', e => {
+window.addEventListener('pointermove', e => {
   if (!_mq) return;
   const r = _mq.overlay.getBoundingClientRect();
   const cx = e.clientX - r.left, cy = e.clientY - r.top;
@@ -2205,7 +2255,7 @@ window.addEventListener('mousemove', e => {
   _mq.boxEl.style.width = Math.abs(cx - _mq.startX) + 'px';
   _mq.boxEl.style.height = Math.abs(cy - _mq.startY) + 'px';
 });
-window.addEventListener('mouseup', e => {
+window.addEventListener('pointerup', e => {
   const mq = _mq;
   if (!mq) return;
   _mq = null;
@@ -2215,8 +2265,21 @@ window.addEventListener('mouseup', e => {
   // no change to .note-mark's pointer-events: the marks stay click-through, and dragging
   // a new box straight across an old highlight keeps working exactly as it did. That was
   // the one real obstacle, and it turned out to be avoidable rather than solvable.
-  if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); noteMarkAt(e.clientX, e.clientY); return; }
+  if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); noteMarkAt(e.clientX, e.clientY); if (COARSE_POINTER) setMarqueeArmed(false); return; }
   handleMarqueeCapture(r, mq.canvas, mq.textLayerDiv);
+  // One arming, one gesture. Leaving it armed would silently cost the reader the
+  // ability to scroll, and they would have no way to know why.
+  if (COARSE_POINTER) setMarqueeArmed(false);
+});
+// A touch drag can be TAKEN rather than finished -- iOS hands the gesture to its own
+// scrolling or to the app switcher and sends pointercancel instead of pointerup.
+// Without this the half-drawn box stays and _mq stays armed, so the reader's next tap
+// completes a drag they abandoned a minute ago.
+window.addEventListener('pointercancel', () => {
+  if (!_mq) return;
+  _mq.boxEl.remove();
+  _mq = null;
+  if (COARSE_POINTER) setMarqueeArmed(false);
 });
 
 // Which highlight, if any, is under that point. Smallest wins: marks overlap where a
