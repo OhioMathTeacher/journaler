@@ -408,6 +408,57 @@ body.header-collapsed .bar-restore { display: block; }
   padding: 0.55rem; box-shadow: 0 4px 22px rgba(0,0,0,0.3);
   animation: popIn 0.12s ease; width: 300px;
 }
+/* Todd-in-a-Can's window. Light, because it is a DIALOG -- the parchment surfaces are
+   the ones that replace the article; the dark popups are the ones that float on top of
+   it. Bubbles follow Verbatim: the student's turn on the right in warm paper, Todd's on
+   the left in cool, so a glance tells you who is speaking without reading a word. */
+.tc-modal { gap: 0.15rem; }
+.tc-about {
+  font-family: Georgia, serif; font-size: 0.86rem; color: var(--muted); line-height: 1.5;
+  border-left: 3px solid var(--accent-light); padding: 0.3rem 0 0.3rem 0.7rem;
+  margin: 0.35rem 0 0.2rem; flex: 0 0 auto;
+}
+.tc-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 0.3rem 0.2rem 0.5rem; }
+.tc-empty, .tc-notice { font-family:'DM Sans',sans-serif; font-size: 0.85rem; color: var(--muted); line-height: 1.55; padding: 0.6rem 0.2rem; }
+.tc-notice { border-top: 1px solid var(--comment-border); margin-top: 0.5rem; }
+/* An exchange is the unit a student thinks in: their question and his answer. Deleting
+   half of one leaves a reply to nothing, so the ✕ takes the pair. */
+.tc-pair { position: relative; margin: 0 0 0.5rem; padding: 0.35rem 0.2rem 0.2rem; border-radius: 10px; }
+.tc-pair:hover { background: rgba(0,0,0,0.02); }
+.tc-pair-x { position: absolute; top: 0.35rem; right: 0.3rem; background: none; border: 0;
+  cursor: pointer; font-size: 0.85rem; line-height: 1; padding: 0.2rem 0.35rem; border-radius: 6px;
+  opacity: 0; filter: grayscale(1); transition: opacity 0.12s, filter 0.12s; }
+.tc-pair:hover .tc-pair-x { opacity: 0.75; }
+.tc-pair-x:hover { opacity: 1; filter: none; background: rgba(0,0,0,0.05); }
+@media (pointer: coarse) { .tc-pair-x { opacity: 0.7; } }
+.tc-turn { display: flex; margin: 0.45rem 0 0; }
+.tc-turn.you { justify-content: flex-end; }
+.tc-bubble { max-width: 86%; border-radius: 14px; padding: 0.7rem 0.9rem; border: 1px solid;
+  box-shadow: 0 1px 2px rgba(60,45,25,.05), 0 6px 20px -8px rgba(60,45,25,.14); }
+.tc-turn.todd .tc-bubble { background: #eef4f5; border-color: #cfe0e3; }
+.tc-turn.you  .tc-bubble { background: #fbf0e7; border-color: #eed7c3; }
+.tc-who { display: flex; align-items: center; gap: 0.4rem;
+  font-family:'DM Sans',sans-serif; font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.3rem; }
+.tc-text { font-family: Georgia, serif; font-size: 0.95rem; line-height: 1.6; color: var(--ink); }
+.tc-tool { background: none; border: 0; color: var(--muted); cursor: pointer;
+  font-size: 0.72rem; padding: 0.1rem 0.3rem; border-radius: 4px; font-family:'DM Sans',sans-serif; }
+.tc-tool:hover { color: var(--ink); background: rgba(0,0,0,0.06); }
+.tc-tool.save { color: var(--accent); font-weight: 600; }
+.tc-edit { width: 100%; min-height: 4rem; background: #fff; border: 1px solid var(--accent-light);
+  border-radius: 6px; color: var(--ink); font-family: Georgia, serif; font-size: 0.93rem;
+  line-height: 1.55; padding: 0.45rem 0.55rem; outline: none; }
+.tc-edit-row { display: flex; gap: 0.3rem; justify-content: flex-end; margin-top: 0.3rem; }
+.tc-compose { display: flex; gap: 0.45rem; align-items: flex-end; flex: 0 0 auto; margin: 0.4rem 0 0.15rem; }
+.tc-compose textarea { flex: 1 1 auto; background: #fff; border: 1px solid var(--comment-border);
+  border-radius: 8px; color: var(--ink); font-family: Georgia, serif; font-size: 0.95rem;
+  line-height: 1.55; padding: 0.55rem 0.7rem; outline: none; resize: vertical; }
+.tc-compose textarea:focus { border-color: var(--accent-light); }
+.tc-send { flex: 0 0 auto; background: #2f5233; color: #fff; border: 0; border-radius: 8px;
+  padding: 0.6rem 1.1rem; font-family:'DM Sans',sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.tc-send:hover { background: #3a6440; }
+.tc-send[disabled] { opacity: 0.5; cursor: default; }
 @keyframes popIn {
   from { opacity:0; transform: scale(0.96); }
   to { opacity:1; transform: scale(1); }
@@ -440,7 +491,12 @@ body.header-collapsed .bar-restore { display: block; }
   padding: 0.3rem 0.6rem; border: none; border-radius: 3px; cursor: pointer;
   transition: background 0.15s;
 }
-.popup-btn.primary { background: var(--cave-glow); color: var(--cave-dark); flex: 1; }
+.popup-btn.primary { background: var(--cave-glow); color: var(--cave-dark); flex: 1 1 0; }
+/* Two verbs, equal billing. Save note used to take the whole row on its own, which
+   said the note was the only thing you could do with a passage. */
+.popup-btn.ask { background: rgba(212,168,67,0.14); color: #E4D9C2;
+  border: 1px solid rgba(212,168,67,0.35); flex: 1 1 0; white-space: nowrap; }
+.popup-btn.ask:hover { background: rgba(212,168,67,0.24); border-color: var(--cave-glow); }
 .popup-btn.primary:hover { background: #E0B84E; }
 .popup-btn.secondary { background: rgba(255,255,255,0.06); color: #9A9083; }
 .popup-btn.secondary:hover { background: rgba(255,255,255,0.12); }
@@ -1419,6 +1475,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();saveHighlight()}if(event.key==='Escape')closeCapture()"></textarea>
   <div class="popup-actions">
     <button class="popup-btn secondary" onclick="closeCapture()">Cancel</button>
+    <button class="popup-btn ask" id="captureAskBtn" onclick="askToddAboutCapture()" title="Talk this passage over with Todd-in-a-Can. Your note is saved first if you have written one.">🥫 Ask Todd</button>
     <button class="popup-btn primary" id="captureSaveBtn" onclick="saveHighlight()" disabled title="Save this note (Ctrl+Enter)">✎ Save note</button>
   </div>
 </div>
@@ -1459,6 +1516,32 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   <div class="popup-actions">
     <button class="popup-btn secondary" onclick="closePopup()" data-i18n="cancel">Cancel</button>
     <button class="popup-btn primary" id="popupAskBtn" onclick="submitComment()" data-i18n="ask">Ask</button>
+  </div>
+</div>
+
+<!-- Todd-in-a-Can, opened from a passage. A SECOND DOOR onto the conversation the
+     Notebook already holds -- same kind:'chat' journal entry, same messages array --
+     rather than a third place a student's words could hide. Built on .nb-modal so it
+     is the same size, scroll and parchment as Your Journal, and inherits the touch
+     fixes that dialog already carries. -->
+<div class="nb-modal-overlay" id="toddChatOverlay" onclick="if(event.target===this)closeToddChat()">
+  <div class="nb-modal tc-modal">
+    <div class="nb-winctl">
+      <button class="nb-close-x" onclick="closeToddChat()" aria-label="Close" title="Close">×</button>
+    </div>
+    <h2>🥫 Todd-in-a-Can</h2>
+    <div class="nb-sub">One conversation per article — it goes into your Journal under “My conversation.”</div>
+    <div class="tc-about" id="tcAbout"></div>
+    <div class="tc-log nb-view" id="tcLog"></div>
+    <div class="tc-compose">
+      <textarea id="tcInput" rows="2" placeholder="Ask about this passage…"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();sendToddFromPopup()}"></textarea>
+      <button class="tc-send" id="tcSend" onclick="sendToddFromPopup()">Send</button>
+    </div>
+    <div class="nb-foot">
+      <button class="nb-mini" onclick="exportToddChat()" title="Save this conversation as a plain text file. Your Journal already includes it — this is a spare copy.">↓ Export conversation</button>
+      <button class="nb-cancel" onclick="closeToddChat()" title="Every message is saved as you go — this just closes the window.">Close</button>
+    </div>
   </div>
 </div>
 
@@ -4715,7 +4798,7 @@ function upsertChat(messages, themes) {
   e.edited = now;
   saveJournal(journal);
 }
-function toddChatPrompt(messages, opening) {
+function toddChatPrompt(messages, opening, aboutPassage) {
   const hl = currentHighlights();
   const multi = new Set(hl.map(c => c._reading).filter(Boolean)).size > 1;
   const hlText = hl.map((c, i) => `${i + 1}. "${(c.passage || '(a figure)')}"${c.comment ? ' — their note: ' + c.comment : ''}${multi && c._reading ? ' [from ' + c._reading + ']' : ''}`).join('\n');
@@ -4726,7 +4809,11 @@ function toddChatPrompt(messages, opening) {
   const focusLine = focus === 'exploratory'
     ? 'MODE: Exploratory. Use the prompt as a lens, but keep the conversation open and curious. Follow their thinking, surface threads across their highlights, and let them wander into what interests them. Do not push toward a single answer.'
     : 'MODE: Focused. Your job is to help them build toward a real answer to this week\'s prompt, using their highlights as the evidence. Keep the conversation pointed at the prompt; when they drift, gently bring it back.';
-  const rule = opening
+  // Opened from a marked passage with no question typed: the passage IS the opening
+  // move, so Todd starts there rather than on the week's prompt.
+  const rule = aboutPassage
+    ? `This is the FIRST turn. The student has just marked this passage and wants to talk about it:\n"${aboutPassage}"\nRespond to THAT passage in one or two sentences, then ask ONE short question about it. Do not summarise it back to them. Under 100 words.`
+    : opening
     ? (focus === 'exploratory'
         ? 'This is the FIRST turn. Name this week\'s question in a sentence. If the prompt centers on something you cannot see (a board, a video, a figure, a task they did), say so plainly and ask them to describe it and what they noticed. Otherwise, name 2-3 threads across their highlights and invite them into one. One question. Under 120 words.'
         : 'This is the FIRST turn. Name this week\'s question in a sentence. If it centers on something you cannot see (a board they ranked, a video they watched, a figure, a task they did), say so plainly and ask them to describe that specific thing and their first reasoning about it — that is exactly what their entry needs. Otherwise, point to which highlights are the raw material and ask one question that starts them building an answer. Under 120 words.')
@@ -4813,6 +4900,158 @@ async function sendToddMessage() {
   renderNbChat();
   focusChatInput();
 }
+// ── Todd-in-a-Can, opened from a passage ────────────────────────────────────
+// One conversation per article. This popup and the Notebook strip are two doors onto
+// the same kind:'chat' entry, so a question asked in the margin is the same thread the
+// student later submits -- not a second transcript that quietly never reaches the
+// journal.
+let _tcPassage = '';
+function openToddChat(passage) {
+  _tcPassage = passage || '';
+  const ov = document.getElementById('toddChatOverlay');
+  const about = document.getElementById('tcAbout');
+  if (about) {
+    about.textContent = _tcPassage ? '\u201C' + truncate(_tcPassage, 180) + '\u201D' : '';
+    about.style.display = _tcPassage ? '' : 'none';
+  }
+  ov.classList.add('open');
+  renderToddChat(aiConfigured() ? '' : 'No model chosen yet. Open \u2699 \u2192 Reading partner to pick one \u2014 the rest of Journaler works without it.');
+  setTimeout(() => { const i = document.getElementById('tcInput'); if (i) i.focus(); }, 60);
+}
+function closeToddChat() {
+  document.getElementById('toddChatOverlay').classList.remove('open');
+  _tcPassage = '';
+}
+// Ask from a marked passage. Whatever is in the note field is the QUESTION -- a student
+// who types "why does she call this a misconception?" and presses Ask Todd means it as a
+// question, not as a note filed away in silence. Nothing typed and a passage marked? Then
+// the passage is the question, and Todd opens on it.
+function askToddAboutCapture() {
+  const inp = document.getElementById('captureInput');
+  const question = inp ? inp.value.trim() : '';
+  const passage = captureText;
+  closeCapture();
+  openToddChat(passage);
+  if (question) sendToddFromPopup(question);
+  else if (passage) toddOpenOnPassage(passage);
+}
+// Todd's first move when the student marked a passage but asked nothing.
+async function toddOpenOnPassage(passage) {
+  if (!aiConfigured() || _chatBusy) return;
+  setChatBusy(true);
+  let reply;
+  try { reply = await callModel(toddChatPrompt([], false, passage)); } catch (e) { reply = null; }
+  _chatBusy = false;
+  if (!reply) { renderToddChat('Could not reach the AI. Check \u2699 \u2192 Reading partner.'); return; }
+  const cur = getChatEntry();
+  const msgs = (cur && cur.messages ? cur.messages.slice() : []);
+  msgs.push({ role: 'todd', text: reply, ts: Date.now(), about: passage });
+  upsertChat(msgs);
+  _tcPassage = '';
+  const ab = document.getElementById('tcAbout'); if (ab) ab.style.display = '';
+  renderToddChat();
+}
+function renderToddChat(notice) {
+  const log = document.getElementById('tcLog');
+  if (!log) return;
+  const msgs = (getChatEntry() || {}).messages || [];
+  const esc = escHtml;
+  // Group into exchanges: a message from the student opens one, and Todd's replies
+  // belong to it until the student speaks again. Todd opening unprompted (from a
+  // marked passage) is an exchange of his own.
+  const pairs = [];
+  msgs.forEach((m, i) => {
+    if (m.role === 'you' || !pairs.length) pairs.push({ idx: [i] });
+    else pairs[pairs.length - 1].idx.push(i);
+  });
+  const bubble = (m, i) =>
+      `<div class="tc-turn ${m.role === 'todd' ? 'todd' : 'you'}"><div class="tc-bubble">`
+    + `<div class="tc-who">${m.role === 'todd' ? 'Todd-in-a-Can' : 'You'}`
+    + `<button class="tc-tool" title="Edit this message" onclick="editToddMessage(${i})">✎</button></div>`
+    + `<div class="tc-text" id="tcText${i}">${esc(m.text || '').replace(/\n/g, '<br>')}</div>`
+    + `</div></div>`;
+  log.innerHTML = (pairs.length
+    ? pairs.map(pr =>
+        `<div class="tc-pair">`
+      + `<button class="tc-pair-x" title="Delete this exchange — the question and its answer" onclick="deleteToddPair(${pr.idx[0]},${pr.idx[pr.idx.length - 1]})">\u{1F5D1}\uFE0F</button>`
+      + pr.idx.map(i => bubble(msgs[i], i)).join('')
+      + `</div>`).join('')
+    : '<div class="tc-empty">Nothing yet. Ask about the passage above, or anything else in this article.</div>')
+    + (notice ? `<div class="tc-notice">${esc(notice)}</div>` : '');
+  log.scrollTop = log.scrollHeight;
+}
+// The transcript is submitted work, so the student curates it. A whole exchange goes at
+// once -- deleting only the question would leave an answer to nothing, which reads as
+// Todd talking to himself in the printed journal.
+function deleteToddPair(from, to) {
+  const e = getChatEntry(); if (!e || !e.messages) return;
+  const msgs = e.messages.slice();
+  msgs.splice(from, (to - from) + 1);
+  upsertChat(msgs);
+  renderToddChat();
+  if (typeof renderNbChat === 'function' && document.getElementById('nbChatLog')) renderNbChat();
+}
+function editToddMessage(i) {
+  const e = getChatEntry(); if (!e || !e.messages || !e.messages[i]) return;
+  const cell = document.getElementById('tcText' + i);
+  if (!cell || cell.querySelector('textarea')) return;
+  const cur = e.messages[i].text || '';
+  cell.innerHTML = `<textarea class="tc-edit" id="tcEdit${i}"></textarea>`
+    + `<div class="tc-edit-row"><button class="tc-tool" onclick="renderToddChat()">Cancel</button>`
+    + `<button class="tc-tool save" onclick="saveToddEdit(${i})">Save</button></div>`;
+  const ta = document.getElementById('tcEdit' + i);
+  ta.value = cur; ta.focus();
+}
+function saveToddEdit(i) {
+  const ta = document.getElementById('tcEdit' + i);
+  const e = getChatEntry(); if (!ta || !e || !e.messages || !e.messages[i]) return;
+  const msgs = e.messages.slice();
+  const v = ta.value.trim();
+  if (!v) { msgs.splice(i, 1); } else { msgs[i] = { ...msgs[i], text: v, edited: Date.now() }; }
+  upsertChat(msgs);
+  renderToddChat();
+  if (typeof renderNbChat === 'function' && document.getElementById('nbChatLog')) renderNbChat();
+}
+// A spare copy in the student's own hands. The Journal already carries this
+// conversation; this is the belt to that pair of braces.
+function exportToddChat() {
+  const msgs = (getChatEntry() || {}).messages || [];
+  if (!msgs.length) { alert('This conversation is empty.'); return; }
+  const body = msgs.map(m => (m.role === 'todd' ? 'Todd-in-a-Can' : 'You') + ': ' + (m.text || '')).join('\n\n');
+  const blob = new Blob([`Conversation with Todd-in-a-Can — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tce318p-conversation-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+             + '-' + fileStamp() + '-' + buildTag() + '.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function sendToddFromPopup(preset) {
+  if (!aiConfigured()) { renderToddChat('No model chosen yet \u2014 open \u2699 \u2192 Reading partner.'); return; }
+  const inp = document.getElementById('tcInput');
+  let text = (preset != null ? String(preset) : (inp ? inp.value : '')).trim();
+  if (!text || _chatBusy) return;
+  // Fold the passage into the FIRST question asked about it, so the transcript still
+  // reads sensibly in the printed journal, where the margin is not there to explain it.
+  if (_tcPassage) { text = 'About \u201C' + _tcPassage + '\u201D \u2014 ' + text; _tcPassage = '';
+    const ab = document.getElementById('tcAbout'); if (ab) ab.style.display = 'none'; }
+  const cur = getChatEntry();
+  const messages = (cur && cur.messages) ? cur.messages.slice() : [];
+  messages.push({ role: 'you', text, ts: Date.now() });
+  upsertChat(messages);
+  if (inp && preset == null) inp.value = '';
+  renderToddChat();
+  setChatBusy(true);
+  let reply;
+  try { reply = await callModel(toddChatPrompt(messages, false)); } catch (e) { reply = null; }
+  _chatBusy = false;
+  const msgs = (getChatEntry()?.messages || messages).slice();
+  msgs.push({ role: 'todd', text: reply || 'Could not reach the AI. Check your setup with \u2699 \u2192 Reading partner, then keep going.', ts: Date.now() });
+  upsertChat(msgs);
+  renderToddChat();
+  if (typeof renderNbChat === 'function' && document.getElementById('nbChatLog')) renderNbChat();
+}
+
 // The closing move the Reading Journal is built around: Todd asks the student to state
 // their take, and that take is surfaced at the top of the printed entry.
 function askForTake() {
