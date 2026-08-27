@@ -3,6 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ONE source of truth for the build. It sits in the first 1KB of the file on
+     purpose: the updater fetches exactly these bytes with a Range request to ask
+     "is what I am running still what is published?" — so the string the app shows
+     and the string the update check reads can never drift apart. Bump it here and
+     nowhere else. -->
+<meta name="app-version" content="2026-08-27 · build 39">
+<!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
+     Modelled on Allegory's crash log, and here for the same reason. Both bugs
+     that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
+     saw a white page, or "a figure — no text in that box", while the one sentence
+     naming the cause went to a developer console no student can open. Reading the
+     code for an hour found the wrong bug; the device's own error message found
+     the right one in ninety seconds.
+     So keep a rolling log — errors AND the ordinary events around them, because
+     what was happening just before is half the diagnosis — in localStorage, where
+     ⚙ → Diagnostics can hand it back. It runs before pdf.js and before the app so
+     it also catches a script that fails to load, and every path is wrapped in
+     try/catch: it must never be able to break the app it is watching.
+     Known gap: a Worker is its own realm, so a warning raised INSIDE the pdf.js
+     worker is not seen here. What the app catches and re-warns on the main thread
+     is, and that is the class of bug this exists for. -->
+<script>
+(function () {
+  var KEY = 'cr_applog';
+  // Allegory keeps 300. Journaler shares its storage drawer with the student's
+  // notes and journal entries, and saveJournal() already has to survive a full
+  // one -- so the log is capped by BYTES as well as by count, and gives way
+  // first. A diagnostic must never be the reason a graded entry would not save.
+  var MAX_ENTRIES = 250, MAX_BYTES = 96 * 1024, MSG_MAX = 300, DATA_MAX = 600;
+  var entries = [], listeners = [], timer = null;
+  try {
+    var raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (raw && raw.length !== undefined) entries = Array.prototype.slice.call(raw);
+  } catch (e) { entries = []; }
+
+  function persist() {
+    timer = null;
+    try {
+      var json = JSON.stringify(entries);
+      while (json.length > MAX_BYTES && entries.length > 20) {
+        entries.splice(0, Math.max(1, Math.floor(entries.length / 4)));
+        json = JSON.stringify(entries);
+      }
+      localStorage.setItem(KEY, json);
+    } catch (e) {
+      // Quota, or private browsing. Drop the oldest half and try once; if that
+      // fails too, the in-memory copy still serves this session, which is the
+      // session someone is reporting.
+      try {
+        entries.splice(0, Math.floor(entries.length / 2));
+        localStorage.setItem(KEY, JSON.stringify(entries));
+      } catch (e2) {}
+    }
+  }
+  function queue() { if (timer === null) timer = setTimeout(persist, 800); }
+  function notify() { for (var i = 0; i < listeners.length; i++) { try { listeners[i](); } catch (e) {} } }
+
+  function str(v) {
+    try {
+      if (v instanceof Error) return v.stack ? (v.name + ': ' + v.message + '\n' + v.stack) : (v.name + ': ' + v.message);
+      if (typeof v === 'string') return v;
+      return JSON.stringify(v, null, 2);
+    } catch (e) { return String(v); }
+  }
+  // pdf.js warns once per page, so one broken article would otherwise fill the
+  // whole log with the same sentence forty times over. Digits are normalised for
+  // the compare, which is what makes "text layer page 7" and "text layer page 8"
+  // one line with a count rather than two lines.
+  function sig(e) { return e.level + '|' + e.source + '|' + String(e.message).slice(0, 120).replace(/\d+/g, '#'); }
+
+  function log(level, source, message, data) {
+    try {
+      var e = { t: Date.now(), level: level, source: source,
+                message: String(message).slice(0, MSG_MAX) };
+      if (data !== undefined) e.data = str(data).slice(0, DATA_MAX);
+      // Which build produced the line. APP_VERSION is a top-level const in the
+      // app's own script, so it is visible here once that script has run, and a
+      // ReferenceError before it -- which is itself worth recording, because a
+      // student on a stale build is the first thing to rule out.
+      try { e.b = APP_VERSION; } catch (x) { e.b = 'booting'; }
+      var last = entries.length ? entries[entries.length - 1] : null;
+      if (last && sig(last) === sig(e) && (e.t - last.t) < 120000) {
+        last.n = (last.n || 1) + 1; last.t = e.t;
+      } else {
+        entries.push(e);
+        if (entries.length > MAX_ENTRIES) entries.splice(0, entries.length - MAX_ENTRIES);
+      }
+      queue(); notify();
+    } catch (x) {}
+  }
+
+  window.appLog = {
+    log: log,
+    info:  function (s, m, d) { log('info',  s, m, d); },
+    warn:  function (s, m, d) { log('warn',  s, m, d); },
+    error: function (s, m, d) { log('error', s, m, d); },
+    entries: function () { return entries.slice(); },
+    clear: function () { entries.length = 0; try { localStorage.removeItem(KEY); } catch (e) {} notify(); },
+    subscribe: function (fn) { listeners.push(fn); return function () {
+      var i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; }
+  };
+
+  // ── the boot marker: every session opens by saying what it is running on ──
+  log('info', 'boot', 'session start', {
+    ua: navigator.userAgent,
+    platform: navigator.platform,
+    viewport: window.innerWidth + 'x' + window.innerHeight,
+    screen: (screen.width + 'x' + screen.height) + ' @' + (window.devicePixelRatio || 1) + 'x',
+    online: navigator.onLine,
+    homeScreenApp: !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches))
+  });
+
+  // ── console, which is where the two semester-long bugs were hiding ──
+  var orig = { warn: console.warn, error: console.error };
+  function fmt(args) {
+    var out = [];
+    for (var i = 0; i < args.length; i++) {
+      var a = args[i];
+      try { out.push(a instanceof Error ? ((a.name || 'Error') + ': ' + a.message)
+                   : (a && typeof a === 'object') ? JSON.stringify(a).slice(0, 200) : String(a)); }
+      catch (e) { out.push('[unprintable]'); }
+    }
+    return out.join(' ');
+  }
+  function stackOf(args) {
+    for (var i = 0; i < args.length; i++) if (args[i] instanceof Error && args[i].stack) return args[i].stack;
+    return undefined;
+  }
+  console.warn  = function () { try { log('warn',  'console', fmt(arguments), stackOf(arguments)); } catch (e) {} return orig.warn.apply(console, arguments); };
+  console.error = function () { try { log('error', 'console', fmt(arguments), stackOf(arguments)); } catch (e) {} return orig.error.apply(console, arguments); };
+
+  // Capture phase: a script or stylesheet that 404s fires error on the element
+  // and never bubbles to window.
+  window.addEventListener('error', function (ev) {
+    try {
+      var t = ev && ev.target;
+      if (t && t !== window && (t.src || t.href)) {
+        log('error', 'load', 'did not load: ' + String(t.src || t.href), t.tagName); return;
+      }
+      log('error', 'crash', (ev && ev.message) || 'script error', {
+        file: ev && ev.filename, line: ev && ev.lineno, col: ev && ev.colno,
+        stack: ev && ev.error instanceof Error ? ev.error.stack : undefined
+      });
+    } catch (e) {}
+  }, true);
+  window.addEventListener('unhandledrejection', function (ev) {
+    try {
+      var r = ev && ev.reason;
+      log('error', 'unfinished', (r instanceof Error) ? r.message : String(r), r);
+    } catch (e) {}
+  });
+
+  document.addEventListener('visibilitychange', function () { log('info', 'visibility', document.visibilityState); });
+  window.addEventListener('online',  function () { log('info', 'network', 'online'); });
+  window.addEventListener('offline', function () { log('warn', 'network', 'offline'); });
+  // A pending write must not die with the page: on iOS, swiping away from Safari
+  // is a pagehide, and the line you want is the last one written.
+  window.addEventListener('pagehide', function () {
+    log('info', 'lifecycle', 'pagehide');
+    if (timer !== null) { clearTimeout(timer); persist(); }
+  });
+
+  // Chrome-only heap reading. Safari does not expose it, so this simply does not
+  // run there -- which is a pity, because iOS is where memory kills a tab.
+  try {
+    if (performance && performance.memory) {
+      var lastReport = 0, mb = function (n) { return Math.round(n / 1048576) + 'MB'; };
+      setInterval(function () {
+        var m = performance.memory; if (!m) return;
+        var pct = m.usedJSHeapSize / m.jsHeapSizeLimit, now = Date.now();
+        if (now - lastReport < (pct > 0.7 ? 10000 : 60000)) return;
+        lastReport = now;
+        log(pct > 0.85 ? 'error' : pct > 0.7 ? 'warn' : 'info', 'memory',
+            mb(m.usedJSHeapSize) + ' / ' + mb(m.jsHeapSizeLimit) + ' (' + Math.round(pct * 100) + '%)');
+      }, 10000);
+    }
+  } catch (e) {}
+})();
+</script>
 <title>Journaler · TCE 318P</title>
 <!-- Self-hosted fonts (vendored in fonts/) — no network needed. -->
 <link href="fonts/fonts.css" rel="stylesheet">
@@ -532,7 +711,8 @@ body.header-collapsed .bar-restore { display: block; }
   border: 1px solid var(--comment-border); border-radius: 12px; padding: 1.3rem 1.8rem 1.6rem;
   width: min(640px, calc(100vw - 3rem)); max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem);
   display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.4); }
-.set-tabs { display: flex; gap: 1.4rem; border-bottom: 1px solid var(--comment-border); margin: .9rem 0 0; }
+.set-tabs { display: flex; flex-wrap: wrap; column-gap: 1.3rem; row-gap: 0;
+  border-bottom: 1px solid var(--comment-border); margin: .9rem 0 0; }
 .set-tab { background: none; border: 0; padding: .5rem 0 .55rem; cursor: pointer; font-family:'DM Sans',sans-serif;
   font-size: .95rem; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .set-tab:hover { color: var(--ink); }
@@ -553,6 +733,59 @@ body.header-collapsed .bar-restore { display: block; }
 .set-btn.quiet:hover { background: rgba(212,168,67,.12); }
 .set-status { font-family:'DM Sans',sans-serif; font-size: .82rem; font-weight: 600; }
 .set-status .on { color: #2f7a45; } .set-status .off { color: var(--muted); }
+
+/* ── DIAGNOSTICS ──────────────────────────────────────────────────────────
+   Allegory's diagnostics panel, in Journaler's parchment: a bordered box for
+   software updates, then a rolling event log in a monospace column. Levels are
+   carried by colour, and on cream that means a warm brown for a warning and a
+   deep red for an error -- Allegory's amber-on-black is unreadable here. */
+.diag-box { border: 1px solid var(--comment-border); border-radius: 10px;
+  background: rgba(0,0,0,.02); padding: .9rem 1rem; margin: 1rem 0 1.2rem; }
+.diag-box-label { font-family:'DM Sans',sans-serif; font-size: .7rem; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: .55rem; }
+.diag-line { display: flex; align-items: flex-start; gap: .5rem;
+  font-family:'DM Sans',sans-serif; font-size: .88rem; font-weight: 600; color: var(--ink); }
+.diag-line.ok   { color: #2f7a45; }
+.diag-line.new  { color: var(--accent); }
+.diag-line.warn { color: #8a5a12; font-weight: 500; }
+.diag-sub { font-family:'DM Sans',sans-serif; font-size: .76rem; color: var(--muted);
+  margin-top: .3rem; line-height: 1.45; }
+.diag-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  margin: .2rem 0 .5rem; }
+.diag-count { font-family:'DM Sans',sans-serif; font-size: .76rem; color: var(--muted); }
+.diag-tools { display: flex; align-items: center; gap: .15rem; flex: 0 0 auto; }
+/* Icon buttons, sized for a fingertip rather than a cursor -- this panel gets
+   opened on the iPad that is misbehaving. */
+.diag-ico { background: none; border: 0; border-radius: 7px; cursor: pointer; color: var(--muted);
+  font-size: 1rem; line-height: 1; padding: .45rem .5rem; min-width: 34px; }
+.diag-ico:hover { background: rgba(0,0,0,.06); color: var(--ink); }
+.diag-ico:disabled { opacity: .3; cursor: default; }
+.diag-ico:disabled:hover { background: none; color: var(--muted); }
+.diag-log { max-height: 340px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--comment-border); border-radius: 9px; background: var(--comment-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .7rem; line-height: 1.55; }
+.diag-row { padding: .3rem .6rem; border-bottom: 1px solid rgba(0,0,0,.055); color: #55503f; }
+.diag-row:last-child { border-bottom: 0; }
+.diag-row.warn  { color: #8a5a12; background: rgba(198,154,92,.10); }
+.diag-row.error { color: #9c2f22; background: rgba(156,47,34,.07); }
+.diag-when { color: var(--muted); }
+.diag-src { text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.diag-row.warn .diag-src, .diag-row.error .diag-src { color: inherit; opacity: .75; }
+.diag-msg { overflow-wrap: anywhere; }
+.diag-data { margin: .2rem 0 .15rem 1.1rem; padding-left: .6rem;
+  border-left: 2px solid rgba(0,0,0,.10); white-space: pre-wrap; overflow-wrap: anywhere;
+  color: var(--muted); font-size: .68rem; }
+.diag-empty { padding: 1.4rem .6rem; text-align: center; color: var(--muted);
+  font-family:'DM Sans',sans-serif; font-size: .82rem; }
+.diag-ta { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical;
+  font-family:'DM Sans',sans-serif; font-size: .88rem; line-height: 1.5; color: var(--ink);
+  background: var(--comment-bg); border: 1px solid var(--comment-border);
+  border-radius: 8px; padding: .55rem .7rem; margin-top: .1rem; }
+.set-row.stack { flex-direction: column; align-items: stretch; gap: .65rem; }
+.set-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.spin { display: inline-block; animation: diagspin 1s linear infinite; }
+@keyframes diagspin { to { transform: rotate(360deg); } }
 .gear-note { padding: .2rem .7rem .45rem; font-size: .76rem; color: #6a6458; font-family:'DM Sans',sans-serif; }
 
 /* ═══ WRITER'S NOTEBOOK ═══ */
@@ -1268,6 +1501,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <button type="button" class="set-tab"    data-set="cal" role="tab" onclick="selectSettingsTab('cal')">Calendar</button>
       <button type="button" class="set-tab"    data-set="bak" role="tab" onclick="selectSettingsTab('bak')">Backups</button>
       <button type="button" class="set-tab"    data-set="abt" role="tab" onclick="selectSettingsTab('abt')">About</button>
+      <button type="button" class="set-tab"    data-set="diag" role="tab" onclick="selectSettingsTab('diag')">Diagnostics</button>
     </div>
     <div class="set-body" id="setBody"></div>
   </div>
@@ -2149,6 +2383,8 @@ async function openPdfAsReader(file) {
     const arrayBuffer = await file.arrayBuffer();
     const cacheBytes = arrayBuffer.slice(0); // keep a copy before pdf.js detaches the buffer
     pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer, ...window.PDF_DOC_OPTS }).promise;
+    appLog.info('article', 'opened “' + file.name + '” — ' + pdfDoc.numPages + ' pages',
+                { bytes: cacheBytes.byteLength });
     let info = {};
     try { const md = await pdfDoc.getMetadata(); info = (md && md.info) || {}; } catch {}
     customText = {
@@ -2805,6 +3041,14 @@ function anchorForRect(rect) {
 function openCapturePopup(text, boxRect) {
   captureText = text || '';
   captureAnchor = anchorForRect(boxRect);
+  // The signature that went unread for a semester: a box drawn over printed words
+  // that comes back with none. One line here would have named it in ninety seconds,
+  // so it is a warning, not an info -- an empty capture is nearly always a fault.
+  if (captureText) appLog.info('capture', 'marked ' + captureText.length + ' characters'
+                             + (captureAnchor ? ' on page ' + captureAnchor.label : ''));
+  else appLog.warn('capture', 'no text in the marked box'
+                  + (captureAnchor ? ' on page ' + captureAnchor.label : '')
+                  + ' — a figure, or the text layer did not load');
   const pop = document.getElementById('capturePopup');
   document.getElementById('capturePassage').textContent = captureText
     ? (captureText.length > 150 ? captureText.slice(0, 150) + '…' : captureText)
@@ -4008,7 +4252,9 @@ function fileStamp() {
 }
 
 function exportAll() {
-  const SKIP = ['cr_anthropic_key', 'cr_gemini_key', 'cr_groq_key', 'cr_custom_key'];
+  // Keys are secrets; the event log is a diagnostic, and restoring a month-old
+  // backup should not resurrect a month-old list of errors.
+  const SKIP = ['cr_anthropic_key', 'cr_gemini_key', 'cr_groq_key', 'cr_custom_key', 'cr_applog'];
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
@@ -4062,7 +4308,13 @@ function importAll(event) {
 // Settings: a hub. Each tab explains one thing and hands over the control for it.
 // Built fresh on open so the reading-partner line states the truth about the current
 // provider rather than a label cached at load.
-const APP_VERSION = '2026-08-27 · build 38';   // ⚠ bump on every deploy
+// Read from the <meta> in the head rather than declared here, so that the string
+// the app displays and the string the update check downloads are the same bytes.
+// ⚠ Bump it in the <meta>, at the top of this file. Not here.
+const APP_VERSION = (function () {
+  const m = document.querySelector('meta[name="app-version"]');
+  return (m && m.content) || 'unknown build';
+})();
 // A corner badge, same as journaler-284 carries. Todd, 2026-08-26: "this app doesn't
 // show the versioning in a small footer the way 284 does." It answers the question
 // every support conversation opens with -- is the code you are looking at the code I
@@ -4133,16 +4385,47 @@ function renderSettings() {
          <p>A reading-and-writing app for TCE 318P. Everything you write stays in this
             browser on this machine \u2014 there is no account and nothing is uploaded.</p>
        </div><span class="set-status"><span class="off">${esc(APP_VERSION)}</span></span></div>`
-    + `<div class="set-row"><div class="set-row-text">
-         <h3>Something not working?</h3>
-         <p>Tell Dr. Edwards the version above and what you were doing \u2014 which browser,
-            which article, what you clicked. The version is the fastest way to tell whether
-            you are on the current build.</p>
-       </div><button class="set-btn quiet" onclick="copyDiagnostics(this)">Copy details</button></div>`
+
     + `<div class="set-row"><div class="set-row-text">
          <h3>Source code</h3>
          <p>Journaler is open source. Bug reports and suggestions are welcome.</p>
        </div><a class="set-btn quiet" href="${APP_REPO}" target="_blank" rel="noopener">GitHub</a></div>`;
+  } else if (_setTab === 'diag') {
+    box.innerHTML = `<div id="diagUpdate"></div>`
+    + `<div class="set-row stack" style="border-bottom:0;padding-bottom:.4rem">
+         <div class="set-row-text">
+           <h3>Something not working?</h3>
+           <p>Say what you were doing and what happened instead — which article, what you
+              tapped, what appeared. Everything below travels with it, so you never have to
+              describe your iPad down a phone line.
+              <strong>None of your writing is included:</strong> the report counts your notes
+              and entries, it never copies them, and it never carries an API key.</p>
+         </div>
+         <textarea class="diag-ta" id="diagComment" oninput="_diagComment=this.value"
+           placeholder="I tapped ▣ Mark passage on page 3 and no box would draw…">${esc(_diagComment)}</textarea>
+         <div class="set-actions">
+           <button class="set-btn" onclick="copyDetailsAndEmail(this)">Copy details</button>
+           <button class="set-btn quiet" onclick="printReport()">Save a PDF…</button>
+         </div>
+         <p>“Copy details” puts the whole report on your clipboard and opens an email to
+            Dr. Edwards with a short version already in it — send that, or paste the rest in.
+            A browser cannot attach a file to an email by itself, so if you want the full
+            report attached, save the PDF first and attach it yourself.</p>
+       </div>`
+    + `<div class="set-row stack">
+         <div class="set-row-text">
+           <h3>Event log</h3>
+           <p>A rolling log of what the app has been doing, kept in this browser so it survives
+              a crash or a reload. When something goes wrong, the last few lines are usually the
+              whole story — they are the sentences Journaler would otherwise say only to a
+              developer console.</p>
+         </div>
+         <div id="diagLog"></div>
+       </div>`;
+    renderDiagLog();
+    renderUpdateBox();
+    checkForUpdate(false);
+    refreshStorageEstimate();
   } else {
     box.innerHTML =
       `<div class="set-row"><div class="set-row-text">
@@ -4162,42 +4445,421 @@ function renderSettings() {
        </div></div>`;
   }
 }
-// Version, browser, and how full the drawer is -- the three things worth knowing
-// before anyone starts guessing at a support problem.
-function copyDiagnostics(btn) {
-  let used = 0;
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      used += (k || '').length + (localStorage.getItem(k) || '').length;
-    }
-  } catch (e) {}
-  const notes = (function () {
-    let n = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.indexOf('cr_margin_notes_') === 0) {
-        try { n += (JSON.parse(localStorage.getItem(k)) || []).length; } catch (e) {}
-      }
-    }
-    return n;
-  })();
-  let entries = 0;
-  try { entries = (JSON.parse(localStorage.getItem('cr_journal')) || []).length; } catch (e) {}
-  const text = [
-    'Journaler ' + APP_VERSION,
-    'Browser: ' + navigator.userAgent,
-    'Reading partner: ' + (aiConfigured() ? getProvider() : 'off'),
-    'Notes: ' + notes + ' · Entries: ' + entries,
-    'Storage used: ' + Math.round(used / 1024) + ' KB',
-    'Article open: ' + (customText ? (customText.title || 'yes') : 'none')
-  ].join('\n');
-  const done = () => { if (btn) { const t = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = t, 1400); } };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done, () => alert(text));
-  } else { alert(text); }
+// ══════════════════════════════════════════════════════════════════════════
+// DIAGNOSTICS — the event log, the problem report, and the update check.
+//
+// Built after Allegory's diagnostics panel, for the reason its log was written:
+// when something breaks on a device that is not in front of you, the fix is not
+// a better guess, it is the machine's own account of what happened. On
+// 2026-08-27 an hour of reading the code found the wrong bug and the iPad's own
+// error message found the right one in ninety seconds.
+//
+// The rule this panel keeps: it reports COUNTS, never CONTENTS. A report says
+// "27 notes across 3 articles"; it never carries a sentence a student wrote, and
+// it never carries an API key.
+// ══════════════════════════════════════════════════════════════════════════
+const REPORT_EMAIL = 'edwardm2@miamioh.edu';
+let _diagComment = '';
+
+function logTime(t) {
+  const d = new Date(t), p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+function diagEntries() { return window.appLog ? window.appLog.entries() : []; }
+
+function renderDiagLog() {
+  const host = document.getElementById('diagLog');
+  if (!host) return;
+  const es = diagEntries();
+  const off = es.length ? '' : ' disabled';
+  const rows = es.map(e => {
+    const lvl = e.level === 'error' ? ' error' : e.level === 'warn' ? ' warn' : '';
+    return `<div class="diag-row${lvl}">`
+         + `<span class="diag-when">${escHtml(logTime(e.t))}</span> `
+         + `<span class="diag-src">${escHtml(e.source)}</span> `
+         + `<span class="diag-msg">${escHtml(e.message)}${e.n > 1 ? ' ×' + e.n : ''}</span>`
+         + (e.data ? `<div class="diag-data">${escHtml(e.data)}</div>` : '')
+         + `</div>`;
+  }).join('');
+  host.innerHTML =
+    `<div class="diag-head">
+       <span class="diag-count">${es.length
+         ? es.length + ' event' + (es.length === 1 ? '' : 's') + ' · most recent at the bottom'
+         : 'No events recorded'}</span>
+       <span class="diag-tools">
+         <button class="diag-ico" onclick="renderDiagLog()" title="Refresh" aria-label="Refresh">⟳</button>
+         <button class="diag-ico"${off} onclick="copyDiagLog(this)" title="Copy the log" aria-label="Copy the log">⧉</button>
+         <button class="diag-ico"${off} onclick="downloadDiagLog()" title="Download the log" aria-label="Download the log">⤓</button>
+         <button class="diag-ico"${off} onclick="clearDiagLog()" title="Clear the log" aria-label="Clear the log">🗑️</button>
+       </span>
+     </div>`
+  + (es.length ? `<div class="diag-log" id="diagLogBody">${rows}</div>`
+               : `<div class="diag-log"><div class="diag-empty">Nothing recorded yet.</div></div>`);
+  // Open already scrolled to the end: the newest line is the one someone came here to read.
+  const body = document.getElementById('diagLogBody');
+  if (body) body.scrollTop = body.scrollHeight;
 }
 
+// Plain text, because it gets pasted into an email as often as it gets attached.
+function logAsText() {
+  const head = ['Journaler ' + APP_VERSION, navigator.userAgent, new Date().toString(), ''];
+  return head.concat(diagEntries().map(e => {
+    const line = logTime(e.t) + ' [' + e.level.toUpperCase() + '] ' + e.source
+               + ' — ' + e.message + (e.n > 1 ? ' ×' + e.n : '');
+    return e.data ? line + '\n  ' + e.data.replace(/\n/g, '\n  ') : line;
+  })).join('\n');
+}
+function flashBtn(btn, label) {
+  if (!btn) return;
+  const was = btn.textContent, t = btn.title;
+  btn.textContent = label; btn.title = label;
+  setTimeout(() => { btn.textContent = was; btn.title = t; }, 1400);
+}
+function copyDiagLog(btn) {
+  const text = logAsText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => flashBtn(btn, '✓'), () => alert(text));
+  } else { alert(text); }
+}
+function downloadDiagLog() {
+  saveBlob(new Blob([logAsText()], { type: 'text/plain' }),
+           'journaler-log-' + fileStamp() + '-' + buildTag() + '.txt');
+}
+function clearDiagLog() {
+  if (!confirm('Clear the event log?\n\nThis only throws away the record of what the app has been '
+             + 'doing. Your notes and journal entries are untouched.')) return;
+  if (window.appLog) window.appLog.clear();
+  renderDiagLog();
+}
+// One download path for the log, the report and the backup, so a browser that
+// can save one can save all three.
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+// ── the report ────────────────────────────────────────────────────────────
+// Kept synchronous on purpose: mailReport() navigates to a mailto: and an await
+// in front of that navigation is an await between the tap and the handler, which
+// is where Safari stops trusting it. The one genuinely async fact -- the browser's
+// storage estimate -- is fetched when the panel opens and read from here.
+let _storageEstimate = null;
+function refreshStorageEstimate() {
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(est => {
+        _storageEstimate = { usedMB: +(est.usage / 1048576).toFixed(1),
+                             quotaMB: +(est.quota / 1048576).toFixed(1) };
+      }, () => {});
+    }
+  } catch (e) {}
+}
+
+function buildReport() {
+  let bytes = 0, keys = 0, notes = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i); if (!k) continue;
+      keys++; bytes += k.length + (localStorage.getItem(k) || '').length;
+      if (k.indexOf('cr_margin_notes_') === 0) {
+        try { notes += (JSON.parse(localStorage.getItem(k)) || []).length; } catch (e) {}
+      }
+    }
+  } catch (e) {}
+  let titles = {};
+  try { titles = JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch (e) {}
+  const journal = loadJournal();
+  const readings = Object.keys(titles).map(id => {
+    let n = 0;
+    try { n = (JSON.parse(localStorage.getItem('cr_margin_notes_' + id)) || []).length; } catch (e) {}
+    return { title: titles[id], notes: n, entries: journal.filter(e => e.readingId === id).length };
+  });
+  const p = getProvider();
+  return {
+    journalerReport: 1,
+    app: 'Journaler (TCE 318P)',
+    version: APP_VERSION,
+    url: location.href,
+    when: new Date().toString(),
+    comment: _diagComment || '',
+    browser: {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform || '',
+      language: navigator.language || '',
+      online: navigator.onLine,
+      homeScreenApp: !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)),
+      coarsePointer: COARSE_POINTER,
+      screen: screen.width + '×' + screen.height,
+      window: window.innerWidth + '×' + window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1
+    },
+    storage: { localStorageKB: Math.round(bytes / 1024), keys: keys, estimate: _storageEstimate },
+    work: {
+      articles: readings.length, notes: notes, entries: journal.length,
+      openArticle: customText ? (customText.title || 'untitled') : null,
+      readings: readings                       // titles and counts only -- never the writing
+    },
+    ai: {
+      provider: p,
+      model: p === 'local' ? (getLocalModel() || '')
+           : p === 'groq' ? (localStorage.getItem('cr_groq_model') || '')
+           : p === 'custom' ? (localStorage.getItem('cr_custom_model') || '') : '',
+      endpoint: p === 'local' ? (localStorage.getItem('cr_local_endpoint') || '')
+              : p === 'custom' ? (localStorage.getItem('cr_custom_endpoint') || '') : '',
+      keyPresent: (p === 'none' || p === 'local') ? null : !!getStoredKey(p)   // the key itself, never
+    },
+    log: diagEntries()
+  };
+}
+
+// Short enough to survive a mail client, long enough that the attachment is
+// usually a luxury rather than a requirement.
+function reportDigest(rep) {
+  const tail = rep.log.slice(-6).filter(e => e.level !== 'info').slice(-4).map(e =>
+    '  · ' + logTime(e.t) + ' ' + e.level + ' ' + e.source + ' — ' + e.message.slice(0, 140));
+  return [
+    'Journaler ' + rep.version,
+    'Browser: ' + rep.browser.userAgent.slice(0, 160),
+    'Window: ' + rep.browser.window + ' · screen ' + rep.browser.screen
+      + ' @' + rep.browser.devicePixelRatio + 'x' + (rep.browser.homeScreenApp ? ' · home-screen app' : ''),
+    'Reading partner: ' + rep.ai.provider + (rep.ai.model ? ' / ' + rep.ai.model : '')
+      + (rep.ai.keyPresent === false ? ' (no key)' : ''),
+    'Work: ' + rep.work.articles + ' articles · ' + rep.work.notes + ' notes · '
+      + rep.work.entries + ' entries · ' + rep.storage.localStorageKB + ' KB'
+      + (rep.storage.estimate ? ' of ' + rep.storage.estimate.quotaMB + ' MB' : ''),
+    'Article open: ' + (rep.work.openArticle || 'none'),
+    tail.length ? 'Last problems recorded:' : 'Nothing recorded as going wrong.',
+    tail.join('\n')
+  ].filter(Boolean).join('\n');
+}
+
+// A report a person can read, which is the form it gets used in: it arrives in an
+// email, on a phone, usually at eleven at night. JSON was the first draft and it
+// made Todd do the parsing.
+function reportAsText(rep) {
+  const L = [];
+  L.push('JOURNALER PROBLEM REPORT — TCE 318P');
+  L.push(rep.when);
+  L.push('');
+  L.push('WHAT HAPPENED');
+  L.push(rep.comment || '(nothing written)');
+  L.push('');
+  L.push('THE APP');
+  L.push('  Build       ' + rep.version);
+  L.push('  Address     ' + rep.url);
+  L.push('  Partner     ' + rep.ai.provider + (rep.ai.model ? ' / ' + rep.ai.model : '')
+       + (rep.ai.keyPresent === false ? ' — no key set' : rep.ai.keyPresent ? ' — key set' : ''));
+  if (rep.ai.endpoint) L.push('  Endpoint    ' + rep.ai.endpoint);
+  L.push('');
+  L.push('THE DEVICE');
+  L.push('  Browser     ' + rep.browser.userAgent);
+  L.push('  Platform    ' + rep.browser.platform + ' · ' + rep.browser.language
+       + (rep.browser.coarsePointer ? ' · touch screen' : ' · pointing device'));
+  L.push('  Window      ' + rep.browser.window + ' · screen ' + rep.browser.screen
+       + ' @' + rep.browser.devicePixelRatio + 'x');
+  L.push('  Installed   ' + (rep.browser.homeScreenApp ? 'added to the home screen' : 'running in the browser'));
+  L.push('  Online      ' + (rep.browser.online ? 'yes' : 'no'));
+  L.push('');
+  L.push('THE WORK IN THIS BROWSER  (counts only — no writing is included)');
+  L.push('  ' + rep.work.articles + ' articles · ' + rep.work.notes + ' notes · '
+       + rep.work.entries + ' journal entries');
+  L.push('  Storage     ' + rep.storage.localStorageKB + ' KB in ' + rep.storage.keys + ' keys'
+       + (rep.storage.estimate ? ' · ' + rep.storage.estimate.usedMB + ' MB of '
+          + rep.storage.estimate.quotaMB + ' MB allowed' : ''));
+  L.push('  Open now    ' + (rep.work.openArticle || 'no article'));
+  rep.work.readings.forEach(r => L.push('    · ' + r.title + ' — ' + r.notes + ' notes, ' + r.entries + ' entries'));
+  L.push('');
+  L.push('EVENT LOG  (' + rep.log.length + ' events, oldest first)');
+  rep.log.forEach(e => {
+    L.push('  ' + logTime(e.t) + ' [' + e.level.toUpperCase() + '] ' + e.source + ' — '
+         + e.message + (e.n > 1 ? ' ×' + e.n : ''));
+    if (e.data) L.push('      ' + e.data.replace(/\n/g, '\n      '));
+  });
+  return L.join('\n');
+}
+
+// Course, software, date and time — so the mail sorts itself in Todd's inbox and
+// he knows what he is opening before he opens it. The build is in there because
+// "which code were you running" is the first question every time.
+function reportSubject() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const stamp = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+              + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  return 'TCE 318P · Journaler ' + (buildTag().replace(/^b/, 'build ')) + ' · problem report · ' + stamp;
+}
+
+// Synchronous first, because the click that copies is also the click that opens
+// the mail draft, and an await between the two is where Safari stops trusting the
+// gesture. execCommand is deprecated and still the only synchronous copy there is.
+function copyTextBestEffort(text) {
+  let ok = false;
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.contentEditable = 'true';
+    ta.readOnly = false;
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;'
+                     + 'font-size:16px;pointer-events:none';   // 16px: iOS zooms anything smaller
+    document.body.appendChild(ta);
+    const range = document.createRange();
+    range.selectNodeContents(ta);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    ta.setSelectionRange(0, text.length);
+    ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    document.body.removeChild(ta);
+  } catch (e) {}
+  // The modern API is the better one where it works, but it is asynchronous and
+  // this runs one statement before a mailto: navigation -- so it is the fallback,
+  // not the first try.
+  if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+    try { navigator.clipboard.writeText(text); ok = true; } catch (e) {}
+  }
+  return ok;
+}
+
+// The whole flow in one tap: the full report goes to the clipboard, and a mail
+// draft opens carrying the short version. A page cannot attach a file to an
+// email -- mailto: has no such field, in any browser -- so the choice is a body
+// that a mail client might truncate or an attachment nobody will manage. This
+// sends the summary, keeps the rest one paste away, and offers the PDF for when
+// the whole thing is wanted.
+function copyDetailsAndEmail(btn) {
+  const rep = buildReport();
+  const copied = copyTextBestEffort(reportAsText(rep));
+  const body = (rep.comment ? rep.comment : '(Say what you were doing when it went wrong.)')
+    + '\n\n—— from the app, please leave these lines ——\n'
+    + reportDigest(rep)
+    + (copied ? '\n\nThe full report is on my clipboard — paste it below if you need it.\n' : '\n');
+  location.href = 'mailto:' + REPORT_EMAIL
+    + '?subject=' + encodeURIComponent(reportSubject())
+    + '&body=' + encodeURIComponent(body);
+  flashBtn(btn, copied ? 'Copied ✓' : 'Emailing…');
+}
+
+// Same route the Reading Journal takes to a PDF -- a plain window and the
+// browser's own print dialog -- which is already proven on an iPad, where
+// "download a file" mostly is not.
+function printReport() {
+  const rep = buildReport();
+  const esc = escHtml;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Your browser blocked the report window.\n\nUse “Copy details” instead — it puts the same report on your clipboard.'); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8">
+    <title>Journaler problem report — TCE 318P</title><style>
+    body { font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+           color: #2C2416; background: #fff; margin: 2.2rem auto; max-width: 46rem; padding: 0 1.2rem; }
+    h1 { font: 700 15px/1.3 -apple-system, "Segoe UI", sans-serif; letter-spacing: .04em;
+         text-transform: uppercase; margin: 0 0 .2rem; }
+    .sub { font: 12px/1.4 -apple-system, "Segoe UI", sans-serif; color: #6a6458; margin-bottom: 1.4rem; }
+    pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
+    button { font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; background: #2f5233; color: #fff;
+             border: 0; border-radius: 7px; padding: .6rem 1rem; cursor: pointer; margin-bottom: 1.4rem; }
+    @media print { .noprint { display: none } body { margin: 0 } }
+    </style></head><body>
+    <button class="noprint" onclick="window.print()">Save as PDF / Print</button>
+    <h1>Journaler problem report</h1>
+    <div class="sub">TCE 318P · ${esc(rep.version)} · ${esc(rep.when)}</div>
+    <pre>${esc(reportAsText(rep))}</pre>
+    </body></html>`);
+  w.document.close();
+}
+
+// ── the update check ──────────────────────────────────────────────────────
+// There is no server to ask, so ask the published page itself: fetch the first
+// couple of KB of index.html -- which is where the <meta name="app-version">
+// deliberately sits -- and compare it with the build that is running. One string,
+// one source, nothing to keep in step by hand.
+let _update = { state: 'checking' };
+let _updateCheckedAt = 0;
+
+async function checkForUpdate(force) {
+  if (_update.state === 'checking' && _updateCheckedAt) return;
+  if (!force && _updateCheckedAt && Date.now() - _updateCheckedAt < 60000) { renderUpdateBox(); return; }
+  _update = { state: 'checking' }; renderUpdateBox();
+  try {
+    const url = new URL('index.html', location.href);
+    url.searchParams.set('probe', String(Date.now()));   // never answerable from a cache
+    const res = await fetch(url.toString(), { cache: 'no-store', headers: { Range: 'bytes=0-2047' } });
+    if (!res.ok && res.status !== 206) throw new Error('HTTP ' + res.status);
+    const head = await res.text();
+    const m = /<meta\s+name="app-version"\s+content="([^"]*)"/i.exec(head);
+    if (!m) throw new Error('no version found in the published page');
+    _updateCheckedAt = Date.now();
+    const latest = m[1];
+    _update = latest === APP_VERSION ? { state: 'current' } : { state: 'available', latest: latest };
+    appLog.info('update', _update.state === 'available'
+      ? 'a newer build is published: ' + latest : 'up to date (' + latest + ')');
+  } catch (e) {
+    _updateCheckedAt = Date.now();
+    _update = { state: 'error', message: (e && e.message) || 'could not reach the site' };
+    appLog.warn('update', 'check failed', e);
+  }
+  renderUpdateBox();
+}
+
+function applyUpdate() {
+  // A plain reload can be answered with the very bytes we are trying to replace:
+  // GitHub Pages sends max-age=600 and Safari honours it. A URL the cache has
+  // never seen cannot be served from the cache, so carry the new build in the
+  // query and start there. Same origin, so every note and entry stays put.
+  const tag = (/build\s*(\w+)/i.exec(_update.latest || '') || [])[1] || String(Date.now());
+  const url = new URL(location.href);
+  url.searchParams.delete('probe');
+  url.searchParams.set('v', tag);
+  appLog.info('update', 'updating to ' + (_update.latest || 'the published build'));
+  location.replace(url.toString());
+}
+
+function renderUpdateBox() {
+  const host = document.getElementById('diagUpdate');
+  if (!host) return;
+  const u = _update;
+  const again = `<button class="diag-ico" onclick="checkForUpdate(true)" title="Check again" aria-label="Check again">⟳</button>`;
+  let inner;
+  if (u.state === 'checking') {
+    inner = `<div class="diag-line"><span class="spin">⟳</span> Checking for an update…</div>`;
+  } else if (u.state === 'available') {
+    inner = `<div class="diag-head" style="margin:0">
+               <span class="diag-line new">↑ A newer version is published.</span>${again}
+             </div>
+             <div class="diag-sub">Running ${escHtml(APP_VERSION)}<br>Published ${escHtml(u.latest)}<br>
+               Updating reloads the page. Nothing you have written is touched.</div>
+             <div class="set-actions" style="margin-top:.65rem">
+               <button class="set-btn" onclick="applyUpdate()">Update now</button>
+             </div>`;
+  } else if (u.state === 'error') {
+    inner = `<div class="diag-head" style="margin:0">
+               <span class="diag-line warn">Couldn’t check for an update — ${escHtml(u.message)}.</span>${again}
+             </div>
+             <div class="diag-sub">Being offline is the usual reason. You are running ${escHtml(APP_VERSION)}.</div>`;
+  } else {
+    inner = `<div class="diag-head" style="margin:0">
+               <span class="diag-line ok">✓ You’re up to date.</span>${again}
+             </div>
+             <div class="diag-sub">${escHtml(APP_VERSION)}</div>`;
+  }
+  host.innerHTML = `<div class="diag-box"><div class="diag-box-label">Software updates</div>${inner}</div>`;
+}
+
+// Repaint while the panel is open, so an error that happens with Diagnostics on
+// screen appears there. Coalesced, because a failing article logs in bursts.
+(function () {
+  if (!window.appLog || !window.appLog.subscribe) return;
+  let pending = null;
+  window.appLog.subscribe(() => {
+    if (_setTab !== 'diag' || pending) return;
+    const ov = document.getElementById('settingsOverlay');
+    if (!ov || !ov.classList.contains('open')) return;
+    pending = setTimeout(() => { pending = null; renderDiagLog(); }, 400);
+  });
+})();
 function openSettings() {
   selectSettingsTab(_setTab);
   document.getElementById('settingsOverlay').classList.add('open');
@@ -4441,6 +5103,11 @@ async function askElbow(entryText, door) {
 async function callModel(prompt) {
   const provider = getProvider();
   const apiKey   = getStoredKey(provider);
+  // Todd-in-a-Can failing is the second-most-reported problem, and it fails in
+  // several different places -- a retired Groq model, a mistyped key, a school
+  // network. The log records that a request went out and how big it was; the
+  // failure itself arrives via the console capture with the provider's own words.
+  appLog.info('ai', 'request to ' + provider, { promptChars: (prompt || '').length });
 
   if (provider === 'none') {
     openAIModal();
