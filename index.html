@@ -778,6 +778,17 @@ body.header-collapsed .bar-restore { display: block; }
   color: var(--muted); font-size: .68rem; }
 .diag-empty { padding: 1.4rem .6rem; text-align: center; color: var(--muted);
   font-family:'DM Sans',sans-serif; font-size: .82rem; }
+/* The log is a reference, not a thing to read: shut by default, and the header
+   carries enough (how many events, how many of them flagged) to say whether it is
+   worth opening at all. */
+.diag-toggle { display: flex; align-items: baseline; gap: .5rem; width: 100%;
+  background: none; border: 0; padding: .15rem 0; cursor: pointer; text-align: left; }
+.diag-caret { flex: 0 0 auto; width: .8rem; font-size: .78rem; color: var(--muted); }
+.diag-toggle-title { font-family:'DM Sans',sans-serif; font-size: .95rem; font-weight: 700; color: var(--ink); }
+.diag-toggle:hover .diag-toggle-title { color: var(--accent); }
+.diag-toggle-meta { font-family:'DM Sans',sans-serif; font-size: .78rem; color: var(--muted); }
+.diag-toggle-meta .flagged { color: #8a5a12; font-weight: 600; }
+.set-row .diag-blurb { margin: .5rem 0 .15rem; }
 .diag-ta { width: 100%; box-sizing: border-box; min-height: 74px; resize: vertical;
   font-family:'DM Sans',sans-serif; font-size: .88rem; line-height: 1.5; color: var(--ink);
   background: var(--comment-bg); border: 1px solid var(--comment-border);
@@ -4413,16 +4424,22 @@ function renderSettings() {
             report attached, save the PDF first and attach it yourself.</p>
        </div>`
     + `<div class="set-row stack">
-         <div class="set-row-text">
-           <h3>Event log</h3>
-           <p>A rolling log of what the app has been doing, kept in this browser so it survives
-              a crash or a reload. When something goes wrong, the last few lines are usually the
-              whole story — they are the sentences Journaler would otherwise say only to a
-              developer console.</p>
+         <button type="button" class="diag-toggle" id="diagToggle" aria-expanded="${_diagLogOpen}"
+                 aria-controls="diagLogWrap" onclick="toggleDiagLog()">
+           <span class="diag-caret" id="diagCaret">${_diagLogOpen ? '▾' : '▸'}</span>
+           <span class="diag-toggle-title">Event log</span>
+           <span class="diag-toggle-meta" id="diagToggleMeta">${diagCountLabel()}</span>
+         </button>
+         <div id="diagLogWrap" style="display:${_diagLogOpen ? '' : 'none'}">
+           <p class="diag-blurb">A rolling log of what the app has been doing, kept in this browser
+              so it survives a crash or a reload. When something goes wrong, the last few lines are
+              usually the whole story — they are the sentences Journaler would otherwise say only
+              to a developer console.</p>
+           <div id="diagLog"></div>
          </div>
-         <div id="diagLog"></div>
        </div>`;
-    renderDiagLog();
+    if (_diagLogOpen) renderDiagLog();
+    renderDiagToggleMeta();
     renderUpdateBox();
     checkForUpdate(false);
     refreshStorageEstimate();
@@ -4466,6 +4483,38 @@ function logTime(t) {
   return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 function diagEntries() { return window.appLog ? window.appLog.entries() : []; }
+
+let _diagLogOpen = false;
+
+// What the shut header has to say for itself. "Flagged" rather than "errors":
+// a warning here is usually the app noticing something, not the app broken, and
+// a student reading this should not be alarmed into thinking their work is lost.
+function diagCountLabel() {
+  const es = diagEntries();
+  if (!es.length) return 'nothing recorded';
+  const bad = es.filter(e => e.level !== 'info').length;
+  return es.length + ' event' + (es.length === 1 ? '' : 's')
+       + (bad ? ' · <span class="flagged">' + bad + ' flagged</span>' : '');
+}
+function renderDiagToggleMeta() {
+  const el = document.getElementById('diagToggleMeta');
+  if (el) el.innerHTML = diagCountLabel();
+}
+// Flipped in place rather than through renderSettings(), so opening the log does
+// not rebuild the report box underneath it and take the caret out of whatever the
+// reader was part-way through typing.
+function toggleDiagLog() {
+  _diagLogOpen = !_diagLogOpen;
+  const wrap = document.getElementById('diagLogWrap');
+  const caret = document.getElementById('diagCaret');
+  const btn = document.getElementById('diagToggle');
+  if (wrap) wrap.style.display = _diagLogOpen ? '' : 'none';
+  if (caret) caret.textContent = _diagLogOpen ? '▾' : '▸';
+  if (btn) btn.setAttribute('aria-expanded', String(_diagLogOpen));
+  // Rendered on the way open, never while shut: scrollHeight is 0 on a hidden
+  // element, so the jump-to-newest below would have nothing to measure.
+  if (_diagLogOpen) renderDiagLog();
+}
 
 function renderDiagLog() {
   const host = document.getElementById('diagLog');
@@ -4530,6 +4579,7 @@ function clearDiagLog() {
              + 'doing. Your notes and journal entries are untouched.')) return;
   if (window.appLog) window.appLog.clear();
   renderDiagLog();
+  renderDiagToggleMeta();
 }
 // One download path for the log, the report and the backup, so a browser that
 // can save one can save all three.
@@ -4857,7 +4907,11 @@ function renderUpdateBox() {
     if (_setTab !== 'diag' || pending) return;
     const ov = document.getElementById('settingsOverlay');
     if (!ov || !ov.classList.contains('open')) return;
-    pending = setTimeout(() => { pending = null; renderDiagLog(); }, 400);
+    pending = setTimeout(() => {
+      pending = null;
+      renderDiagToggleMeta();               // the count is worth having while shut
+      if (_diagLogOpen) renderDiagLog();
+    }, 400);
   });
 })();
 function openSettings() {
