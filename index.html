@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-27 · build 45">
+<meta name="app-version" content="2026-08-27 · build 46">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -6005,7 +6005,7 @@ async function startToddChat() {
   setChatBusy(true);
   let reply;
   try { reply = await callModel(toddChatPrompt([], true)); } catch (e) { reply = null; }
-  _chatBusy = false;
+  setChatBusy(false);
   if (!reply) { renderNbChat('Could not reach the AI. Check your setup with the AI button in the header, then try again.'); return; }
   upsertChat([{ role: 'todd', text: reply, ts: Date.now() }]);
   renderNbChat();
@@ -6036,7 +6036,7 @@ async function sendToddMessage() {
   setChatBusy(true);
   let reply;
   try { reply = await callModel(toddChatPrompt(messages, false)); } catch (e) { reply = null; }
-  _chatBusy = false;
+  setChatBusy(false);
   const msgs = (getChatEntry()?.messages || messages).slice();
   msgs.push({ role: 'todd', text: reply || 'Could not reach the AI. Check your setup with the AI button, then keep going.', ts: Date.now() });
   upsertChat(msgs);
@@ -6130,7 +6130,7 @@ async function toddOpenOnPassage(passage) {
   setChatBusy(true);
   let reply;
   try { reply = await callModel(toddChatPrompt([], false, passage)); } catch (e) { reply = null; }
-  _chatBusy = false;
+  setChatBusy(false);
   if (!reply) { renderToddChat('Could not reach the AI. '
     + '<button type="button" class="tc-cta" onclick="closeToddChat();openAIModal()">Check the model</button>', true); return; }
   const cur = getChatEntry();
