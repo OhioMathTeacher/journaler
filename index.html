@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-27 · build 43">
+<meta name="app-version" content="2026-08-27 · build 45">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -435,6 +435,9 @@ body.header-collapsed .bar-restore { display: block; }
 }
 .margin-header-btn:hover { border-color: rgba(212,168,67,0.4); color: var(--accent-light); }
 #clearNotesBtn:hover { border-color: var(--danger); color: var(--danger); }
+.set-test-out { margin-top: .45rem !important; font-family: 'DM Sans', sans-serif; font-size: .8rem; }
+.set-test-out.ok  { color: var(--accent); }
+.set-test-out.bad { color: var(--danger); }
 #importNotesInput { display: none; }
 .comment-thread {
   margin-bottom: 1rem;
@@ -1954,6 +1957,36 @@ let pdfCaptureMode = 'box'; // 'box' = drag-to-capture · 'select' = native text
 // passage, draw one box, and scrolling comes straight back. A pointing device keeps the
 // old always-on behaviour, which is what every existing reader already has in their hands.
 const COARSE_POINTER = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+// The one-pane-at-a-time layout, asked of the media query rather than rebuilt from
+// parts. Everything that switches panes has to agree with the CSS that hides one of
+// them, and agreeing by coincidence is how they came apart: Notes was drawn on
+// COARSE_POINTER alone, so a landscape iPad -- coarse, but wider than 950 -- showed a
+// button that added a class no rule was listening for. It looked broken because it
+// was: nothing moved, and `‹ Article` is hidden out here too, so there was not even a
+// way back to prove it had done something. One predicate now, wherever the panes split.
+const PANE_SPLIT_MQ = window.matchMedia
+  ? window.matchMedia('(pointer: coarse) and (max-width: 950px)') : null;
+function paneSplit() { return !!(PANE_SPLIT_MQ && PANE_SPLIT_MQ.matches); }
+
+// Turning an iPad sideways crosses this line, so the button has to come and go with
+// it. Leaving the split layout also drops `pane-notes`: out here the class styles
+// nothing, and a reader who rotates back should find the article, not the pane they
+// happened to be on two orientations ago. Older Safari only has addListener.
+if (PANE_SPLIT_MQ) {
+  const onPaneSplitChange = () => {
+    if (!paneSplit()) setPane('article');
+    // The button lives in the view bar, which renderPdf rebuilds. No PDF, no bar.
+    // Asked of the DOM rather than the `textCol` const, which is declared further
+    // down the file: this handler is older than that line, even if it never runs first.
+    const col = document.getElementById('textColumn');
+    if (pdfDoc && customText && customText.isPdf && col && col.clientWidth) renderPdf();
+  };
+  PANE_SPLIT_MQ.addEventListener
+    ? PANE_SPLIT_MQ.addEventListener('change', onPaneSplitChange)
+    : PANE_SPLIT_MQ.addListener(onPaneSplitChange);
+}
+
 let marqueeArmed = !COARSE_POINTER;
 let captureText = '';
 let captureAnchor = null; // {page, label, x, y, w, h} — page fractions, so zoom-independent
@@ -2670,7 +2703,9 @@ function buildViewBar(doc) {
     // The header can be hidden; this strip cannot. In portrait, where only one pane
     // shows at a time, the way to the notes belongs HERE -- above the article and
     // always on screen -- not in a bar the reader has just chosen to put away.
-    + (COARSE_POINTER ? '<button class="vbtn" id="vbNotes" title="Your margin notes for this reading.">\u{1F5D2} Notes</button>' : '');
+    // Only where one pane hides the other. Side by side the notes are already on
+    // screen, and a button that promises to show them has nothing left to do.
+    + (paneSplit() ? '<button class="vbtn" id="vbNotes" title="Your margin notes for this reading.">\u{1F5D2} Notes</button>' : '');
   bar.querySelector('#vbCapture') && (bar.querySelector('#vbCapture').onclick = () => setMarqueeArmed(!marqueeArmed));
   bar.querySelector('#vbNotes') && (bar.querySelector('#vbNotes').onclick = () => setPane('notes'));
   bar.querySelector('#pgPrev') && (bar.querySelector('#pgPrev').onclick = () => turnPage(-1));
@@ -2853,8 +2888,7 @@ function revealNote(id) {
   // portrait screen has to bring the notes back, or the card flashes out of sight.
   // Asked of the media query directly -- an earlier version tested an element that has
   // since moved into the view bar, so the check was quietly always false.
-  if (COARSE_POINTER && window.matchMedia('(max-width: 950px)').matches
-      && !document.body.classList.contains('pane-notes')) {
+  if (paneSplit() && !document.body.classList.contains('pane-notes')) {
     setPane('notes');
     setTimeout(() => revealNote(id), 80);
     return;
@@ -3612,12 +3646,38 @@ function groqUsableModel(id) {
   const s = String(id || '').toLowerCase();
   return !!s && !/whisper|tts|guard|embed|moderation|rerank/.test(s);
 }
-async function groqDiscoverModel(apiKey) {
-  const res = await fetch('https://api.groq.com/openai/v1/models',
+// A request that never comes back is worse than one that fails: the chat sits on
+// "Todd is thinking..." forever, with nothing to read and nothing to do. Every call to a
+// provider goes through here so that a stalled network becomes a sentence on screen.
+// 30s is well past a slow answer and well short of a student giving up.
+const AI_TIMEOUT_MS = 30000;
+async function fetchAI(url, opts = {}, ms = AI_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (e) {
+    if (e && e.name === 'AbortError') {
+      throw new Error(`No answer in ${Math.round(ms / 1000)} seconds. The network may be blocking it \u2014 on school wi-fi this is usually a filter, not your key.`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// `avoid` is the model that just failed. Without it the discovery can hand back the very
+// id that died -- GROQ_PREFERRED[0] and GROQ_MODEL_DEFAULT are deliberately the same
+// string, so the day that model retires, `fresh === model`, the retry is skipped, and
+// every student sees a bare 400. The guard against an infinite loop was also a guard
+// against recovering.
+async function groqDiscoverModel(apiKey, avoid) {
+  const res = await fetchAI('https://api.groq.com/openai/v1/models',
     { headers: { 'Authorization': `Bearer ${apiKey}` } });
   if (!res.ok) return '';
   const data = await res.json().catch(() => null);
-  const ids = (data && data.data || []).map(m => m && m.id).filter(groqUsableModel);
+  const ids = (data && data.data || []).map(m => m && m.id)
+    .filter(groqUsableModel).filter(id => id !== avoid);
   if (!ids.length) return '';
   for (const p of GROQ_PREFERRED) if (ids.includes(p)) return p;
   // Nothing familiar survives. Prefer something that looks like a large instruct model
@@ -4388,6 +4448,38 @@ function gearAILabel() {
   const n = names[p] || p;
   return getStoredKey(p) ? `${n} \u2713` : `${n} (no key)`;
 }
+// Ask the configured partner one trivial question and report exactly what happened.
+// callModel returns provider errors as ordinary strings rather than throwing, so a
+// failure arrives here as text -- which is the point: show it verbatim instead of
+// translating it into something friendlier and less useful.
+async function testReadingPartner() {
+  const out = document.getElementById('aiTestOut');
+  const btn = document.getElementById('aiTestBtn');
+  if (!out || !btn) return;
+  out.style.display = '';
+  out.className = 'set-test-out';
+  out.textContent = 'Asking\u2026';
+  btn.disabled = true;
+  const started = Date.now();
+  let reply, failed = null;
+  try { reply = await callModel('Reply with the single word: ready'); }
+  catch (e) { failed = (e && e.message) || String(e); }
+  const secs = ((Date.now() - started) / 1000).toFixed(1);
+  btn.disabled = false;
+  if (failed) {
+    out.className = 'set-test-out bad';
+    out.textContent = `No answer after ${secs}s \u2014 ${failed}`;
+    appLog.warn('ai', 'test failed', { error: failed });
+    return;
+  }
+  // A provider error comes back as the reply text, not as a throw.
+  const looksWrong = /^(No |Invalid |Error reaching |Set the |[A-Za-z]+ API error)/.test(reply || '');
+  out.className = 'set-test-out ' + (looksWrong ? 'bad' : 'ok');
+  out.textContent = looksWrong ? `${reply} (${secs}s)`
+    : `Answered in ${secs}s: \u201C${String(reply).trim().slice(0, 120)}\u201D`;
+  appLog.info('ai', looksWrong ? 'test returned an error' : 'test ok', { secs: secs });
+}
+
 function selectSettingsTab(tab) {
   _setTab = tab;
   document.querySelectorAll('.set-tab').forEach(b => b.classList.toggle('on', b.dataset.set === tab));
@@ -4409,7 +4501,16 @@ function renderSettings() {
          <h3>Choose an AI Model</h3>
          <p>Run one locally, or connect a hosted model with your own key. Nothing you write is uploaded
             unless you send it to the partner yourself.</p>
-       </div><button class="set-btn" onclick="closeSettings();openAIModal()">Choose\u2026</button></div>`;
+       </div><button class="set-btn" onclick="closeSettings();openAIModal()">Choose\u2026</button></div>`
+
+    // Until now the only way to find out whether the partner actually answers was to
+    // mark a passage and ask him in front of a class. One round trip, the provider's own
+    // words on failure, and nothing written to the journal.
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Is it working?</h3>
+         <p>Sends one short message and shows what comes back. Nothing is saved to your journal.</p>
+         <p id="aiTestOut" class="set-test-out" style="display:none"></p>
+       </div><button class="set-btn quiet" id="aiTestBtn" onclick="testReadingPartner()">Test</button></div>`;
   } else if (_setTab === 'cal') {
     box.innerHTML =
       `<div class="set-row"><div class="set-row-text">
@@ -5183,7 +5284,14 @@ async function callModel(prompt) {
   // several different places -- a retired Groq model, a mistyped key, a school
   // network. The log records that a request went out and how big it was; the
   // failure itself arrives via the console capture with the provider's own words.
-  appLog.info('ai', 'request to ' + provider, { promptChars: (prompt || '').length });
+  // Which model, not just which provider: when Groq retires an id, "request to groq"
+  // looks identical before and after, and the id is the whole answer.
+  appLog.info('ai', 'request to ' + provider, {
+    promptChars: (prompt || '').length,
+    model: provider === 'groq' ? getGroqModel()
+         : provider === 'local' ? getLocalModel()
+         : provider === 'custom' ? (localStorage.getItem(CUSTOM_MODEL_KEY) || '') : ''
+  });
 
   if (provider === 'none') {
     openAIModal();
@@ -5202,7 +5310,7 @@ async function callModel(prompt) {
       return 'No local model selected. Pick one in the AI settings.';
     }
     try {
-      const res = await fetch(`${endpoint}/v1/chat/completions`, {
+      const res = await fetchAI(`${endpoint}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5223,7 +5331,7 @@ async function callModel(prompt) {
 
   if (provider === 'anthropic') {
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchAI('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -5262,7 +5370,7 @@ async function callModel(prompt) {
   if (provider === 'gemini') {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(url, {
+      const res = await fetchAI(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5295,7 +5403,7 @@ async function callModel(prompt) {
   }
 
   if (provider === 'groq') {
-    const ask = (model) => fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const ask = (model) => fetchAI('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -5317,7 +5425,7 @@ async function callModel(prompt) {
       if (err && res.status !== 401) {
         const msg = String(err && err.error && err.error.message || '').toLowerCase();
         if (res.status === 404 || /decommission|deprecat|does not exist|not found|unsupported|invalid model/.test(msg)) {
-          const fresh = await groqDiscoverModel(apiKey).catch(() => '');
+          const fresh = await groqDiscoverModel(apiKey, model).catch(() => '');
           if (fresh && fresh !== model) {
             localStorage.setItem(GROQ_MODEL_KEY, fresh);
             try { if (window.logEvent) window.logEvent('ai', 'groq model retired — switched', { from: model, to: fresh }); } catch (e) {}
@@ -5343,7 +5451,7 @@ async function callModel(prompt) {
     const model = localStorage.getItem(CUSTOM_MODEL_KEY) || '';
     if (!endpoint || !model) { openAIModal(); return 'Set the endpoint URL and model in the AI settings.'; }
     try {
-      const res = await fetch(`${endpoint}/chat/completions`, {
+      const res = await fetchAI(`${endpoint}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model, max_tokens: 200, messages: [{ role: 'user', content: prompt }] })
