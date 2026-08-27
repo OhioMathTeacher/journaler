@@ -446,6 +446,10 @@ body.header-collapsed .bar-restore { display: block; }
   font-size: 0.72rem; padding: 0.1rem 0.3rem; border-radius: 4px; font-family:'DM Sans',sans-serif; }
 .tc-tool:hover { color: var(--ink); background: rgba(0,0,0,0.06); }
 .tc-tool.save { color: var(--accent); font-weight: 600; }
+.tc-cta { display: inline-block; margin-left: 0.35rem; background: #2f5233; color: #fff;
+  border: 0; border-radius: 6px; padding: 0.35rem 0.7rem; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 600; }
+.tc-cta:hover { background: #3a6440; }
 .tc-edit { width: 100%; min-height: 4rem; background: #fff; border: 1px solid var(--accent-light);
   border-radius: 6px; color: var(--ink); font-family: Georgia, serif; font-size: 0.93rem;
   line-height: 1.55; padding: 0.45rem 0.55rem; outline: none; }
@@ -5118,7 +5122,16 @@ ${rule}
 Reply with your turn only — no "Todd:" label, no preamble.`;
 }
 let _chatBusy = false;
-function setChatBusy(on) { _chatBusy = on; renderNbChat(); }
+// Also called from the passage popup, where the Notebook's DOM does not exist --
+// renderNbChat walks elements that live only inside that modal, so an unguarded call
+// threw here and took the whole send with it. The button did nothing, silently.
+function setChatBusy(on) {
+  _chatBusy = on;
+  try { if (document.getElementById('nbChatLog')) renderNbChat(); }
+  catch (e) { console.warn('renderNbChat', e); }
+  const b = document.getElementById('tcSend');
+  if (b) { b.disabled = !!on; b.textContent = on ? 'Thinking…' : 'Send'; }
+}
 function focusChatInput() { const i = document.getElementById('nbChatText'); if (i) setTimeout(() => i.focus(), 30); }
 // Is there actually a model to talk to? callModel() answers setup problems with a
 // STRING, which is truthy -- so an unconfigured app used to store "No AI provider
@@ -5194,13 +5207,59 @@ function openToddChat(passage) {
     about.style.display = _tcPassage ? '' : 'none';
   }
   ov.classList.add('open');
-  renderToddChat(aiConfigured() ? '' : 'No model chosen yet. Open \u2699 \u2192 Reading partner to pick one \u2014 the rest of Journaler works without it.');
-  setTimeout(() => { const i = document.getElementById('tcInput'); if (i) i.focus(); }, 60);
+  renderToddChat(aiConfigured() ? '' : NO_MODEL_NOTICE, true);
+  // NOT on a touch screen. A programmatic focus there opens no keyboard and yet leaves
+  // the field focused -- so the tap that would have raised one is no longer a focus
+  // CHANGE, and iOS does nothing. The box looks live and cannot be typed into. Let the
+  // reader tap it; a pointing device still gets the caret put there for them.
+  if (!COARSE_POINTER) setTimeout(() => { const i = document.getElementById('tcInput'); if (i) i.focus(); }, 60);
+  _fitToddChatToKeyboard();
 }
 function closeToddChat() {
-  document.getElementById('toddChatOverlay').classList.remove('open');
+  const ov = document.getElementById('toddChatOverlay');
+  ov.classList.remove('open');
+  // Hand the overlay back its stylesheet, or the next opening inherits a size that
+  // was measured against a keyboard which is no longer there.
+  ['top','left','width','height','bottom','alignItems'].forEach(k => ov.style[k] = '');
+  const box = ov.querySelector('.nb-modal');
+  if (box) box.style.maxHeight = '';
   _tcPassage = '';
 }
+// The iOS keyboard does not shrink the layout viewport, so a dialog sized in dvh keeps
+// its full height and the compose row -- the whole point of the window -- ends up
+// underneath the keys. The visual viewport is the part actually on screen.
+function _fitToddChatToKeyboard() {
+  const ov = document.getElementById('toddChatOverlay');
+  const box = ov && ov.querySelector('.nb-modal');
+  if (!box || !ov.classList.contains('open')) return;
+  const vv = window.visualViewport;
+  if (!vv) return;
+  // The overlay is inset:0 and centres the dialog in the LAYOUT viewport, which iOS
+  // does not shrink for the keyboard. So the dialog stayed centred on a screen that
+  // was half covered, and the log -- everything you had already asked -- went behind
+  // the keys. Pin the overlay to the visual viewport instead and sit the dialog at
+  // the top of it, so the conversation occupies the space that is actually visible.
+  ov.style.top = vv.offsetTop + 'px';
+  ov.style.left = vv.offsetLeft + 'px';
+  ov.style.width = vv.width + 'px';
+  ov.style.height = vv.height + 'px';
+  ov.style.bottom = 'auto';
+  ov.style.alignItems = 'flex-start';
+  box.style.maxHeight = Math.max(200, vv.height - 12) + 'px';
+  // Shrinking the window must not strand the reader mid-transcript: the newest turn
+  // is the one they are waiting on.
+  const log = document.getElementById('tcLog');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', _fitToddChatToKeyboard);
+  window.visualViewport.addEventListener('scroll', _fitToddChatToKeyboard);
+}
+// Focusing the field is what raises the keyboard; the viewport event that follows can
+// lag it, so re-fit once the animation has had time to finish.
+document.addEventListener('focusin', e => {
+  if (e.target && e.target.id === 'tcInput') setTimeout(_fitToddChatToKeyboard, 250);
+});
 // Ask from a marked passage. Whatever is in the note field is the QUESTION -- a student
 // who types "why does she call this a misconception?" and presses Ask Todd means it as a
 // question, not as a note filed away in silence. Nothing typed and a passage marked? Then
@@ -5221,7 +5280,8 @@ async function toddOpenOnPassage(passage) {
   let reply;
   try { reply = await callModel(toddChatPrompt([], false, passage)); } catch (e) { reply = null; }
   _chatBusy = false;
-  if (!reply) { renderToddChat('Could not reach the AI. Check \u2699 \u2192 Reading partner.'); return; }
+  if (!reply) { renderToddChat('Could not reach the AI. '
+    + '<button type="button" class="tc-cta" onclick="closeToddChat();openAIModal()">Check the model</button>', true); return; }
   const cur = getChatEntry();
   const msgs = (cur && cur.messages ? cur.messages.slice() : []);
   msgs.push({ role: 'todd', text: reply, ts: Date.now(), about: passage });
@@ -5230,7 +5290,13 @@ async function toddOpenOnPassage(passage) {
   const ab = document.getElementById('tcAbout'); if (ab) ab.style.display = '';
   renderToddChat();
 }
-function renderToddChat(notice) {
+// Telling someone what is wrong and leaving them to find the fix is half a message.
+// This one carries the button, and goes straight to the chooser rather than by way of
+// Settings -- the reader has already said what they want to do.
+const NO_MODEL_NOTICE =
+  'Todd needs an AI model before he can answer \u2014 nothing else in Journaler does. '
+  + '<button type="button" class="tc-cta" onclick="closeToddChat();openAIModal()">Choose an AI Model</button>';
+function renderToddChat(notice, isHtml) {
   const log = document.getElementById('tcLog');
   if (!log) return;
   const msgs = (getChatEntry() || {}).messages || [];
@@ -5256,7 +5322,7 @@ function renderToddChat(notice) {
       + pr.idx.map(i => bubble(msgs[i], i)).join('')
       + `</div>`).join('')
     : '<div class="tc-empty">Nothing yet. Ask about the passage above, or anything else in this article.</div>')
-    + (notice ? `<div class="tc-notice">${esc(notice)}</div>` : '');
+    + (notice ? `<div class="tc-notice">${isHtml ? notice : esc(notice)}</div>` : '');
   log.scrollTop = log.scrollHeight;
 }
 // The transcript is submitted work, so the student curates it. A whole exchange goes at
@@ -5306,7 +5372,7 @@ function exportToddChat() {
   URL.revokeObjectURL(a.href);
 }
 async function sendToddFromPopup(preset) {
-  if (!aiConfigured()) { renderToddChat('No model chosen yet \u2014 open \u2699 \u2192 Reading partner.'); return; }
+  if (!aiConfigured()) { renderToddChat(NO_MODEL_NOTICE, true); return; }
   const inp = document.getElementById('tcInput');
   let text = (preset != null ? String(preset) : (inp ? inp.value : '')).trim();
   if (!text || _chatBusy) return;
@@ -5321,14 +5387,18 @@ async function sendToddFromPopup(preset) {
   if (inp && preset == null) inp.value = '';
   renderToddChat();
   setChatBusy(true);
+  renderToddChat('Todd is thinking\u2026');
   let reply;
-  try { reply = await callModel(toddChatPrompt(messages, false)); } catch (e) { reply = null; }
-  _chatBusy = false;
+  let failed = null;
+  try { reply = await callModel(toddChatPrompt(messages, false)); }
+  catch (e) { reply = null; failed = (e && e.message) || String(e); }
+  setChatBusy(false);
   const msgs = (getChatEntry()?.messages || messages).slice();
-  msgs.push({ role: 'todd', text: reply || 'Could not reach the AI. Check your setup with \u2699 \u2192 Reading partner, then keep going.', ts: Date.now() });
+  msgs.push({ role: 'todd', text: reply || ('Could not reach the AI'
+    + (failed ? ' (' + failed + ')' : '') + '. Check \u2699 \u2192 Reading partner, then keep going.'), ts: Date.now() });
   upsertChat(msgs);
   renderToddChat();
-  if (typeof renderNbChat === 'function' && document.getElementById('nbChatLog')) renderNbChat();
+  try { if (document.getElementById('nbChatLog')) renderNbChat(); } catch (e) {}
 }
 
 // The closing move the Reading Journal is built around: Todd asks the student to state
