@@ -25,3 +25,39 @@ define(Map.prototype, 'getOrInsertComputed', getOrInsertComputed);
 define(Map.prototype, 'getOrInsert', getOrInsert);
 define(WeakMap.prototype, 'getOrInsertComputed', getOrInsertComputed);
 define(WeakMap.prototype, 'getOrInsert', getOrInsert);
+
+// pdf.js reads text with `for await (const chunk of this.streamTextContent(...))`,
+// iterating a ReadableStream directly. Chrome and Firefox implement async iteration
+// on ReadableStream; WebKit does not, and has not for years. So on Safari
+// getTextContent threw for every page, the text layer stayed empty, and every
+// captured box came back "a figure -- no text in that box" while the page itself
+// rendered perfectly. The failure was invisible: renderPdf catches it into a
+// console.warn no reader can see.
+if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.asyncIterator]) {
+  const values = function ({ preventCancel = false } = {}) {
+    const reader = this.getReader();
+    return {
+      async next() {
+        try {
+          const { done, value } = await reader.read();
+          if (done) { reader.releaseLock(); return { done: true, value: undefined }; }
+          return { done: false, value };
+        } catch (err) { reader.releaseLock(); throw err; }
+      },
+      // Honour early exit -- a `break` out of the loop must not leave the stream
+      // locked, or the next getTextContent on the same page deadlocks.
+      async return(value) {
+        if (preventCancel) { reader.releaseLock(); return { done: true, value }; }
+        const cancelled = reader.cancel(value);
+        reader.releaseLock();
+        await cancelled;
+        return { done: true, value };
+      },
+      [Symbol.asyncIterator]() { return this; }
+    };
+  };
+  Object.defineProperty(ReadableStream.prototype, Symbol.asyncIterator,
+    { value: values, writable: true, configurable: true });
+  Object.defineProperty(ReadableStream.prototype, 'values',
+    { value: values, writable: true, configurable: true });
+}
