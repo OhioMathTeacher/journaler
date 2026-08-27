@@ -1202,6 +1202,29 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     .textLayer ::selection{background:rgba(90,130,255,.35)}
   .marquee-overlay{position:absolute;inset:0;z-index:3;cursor:crosshair}
   body:not(.marquee-on) .marquee-overlay{cursor:default}
+  /* Only in box mode, and only there. A touch drag is a SCROLL until the page says
+     otherwise, and preventDefault on pointerdown does not say otherwise -- touch-action
+     is the only thing a browser listens to here. Left on always, it would kill scrolling
+     of the article on every touch device, so it is scoped to the mode that wants it. */
+  body.marquee-on .marquee-overlay{touch-action:none}
+  /* The assembled journal, shown inside the app because iOS cannot be handed a second
+     tab: Block Pop-ups ships on, and document.write into about:blank is unreliable in
+     Safari besides. On screen this is a panel over everything. In print the APP is what
+     gets hidden, not the panel repositioned -- a position:fixed element prints once, at
+     its on-screen size, which would clip a whole semester's journal to page one. */
+  /* top/right/bottom/left BEFORE inset, deliberately: `inset` is Safari 14.1, and this
+     panel is the submit path. On an older iPad the shorthand is simply ignored and the
+     four longhands still size it; on a new one inset wins and says the same thing. A
+     panel that collapsed to nothing would hide the journal, not merely misplace it. */
+  #journalPrintOverlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:9999;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch}
+  #journalPrintOverlay .jr-bar{position:sticky;top:0;z-index:1;display:flex;gap:.6rem;padding:.6rem .9rem;background:#f4f4ef;border-bottom:1px solid #ddd}
+  #journalPrintOverlay .jr-bar button{font-family:'DM Sans',sans-serif;font-size:.95rem;padding:.6rem 1rem;cursor:pointer;border:1px solid #888;border-radius:7px;background:#fff;color:#1a1a1a}
+  #journalPrintOverlay .jr-bar .jr-go{background:#2f5233;border-color:#2f5233;color:#fff;font-weight:600}
+  @media print{
+    body.printing-journal > *:not(#journalPrintOverlay){display:none !important}
+    body.printing-journal #journalPrintOverlay{position:static;overflow:visible}
+    #journalPrintOverlay .noprint{display:none !important}
+  }
   .marquee-box{position:absolute;border:1.5px solid #3a5a40;background:rgba(90,150,110,.16);pointer-events:none;z-index:4;border-radius:2px}
   /* The mark sits ABOVE the canvas but BELOW the (transparent) text layer, so the
      words stay selectable and the yellow reads as ink on the page, not a sticker. */
@@ -1438,12 +1461,59 @@ let captureText = '';
 let captureAnchor = null; // {page, label, x, y, w, h} — page fractions, so zoom-independent
 let pdfPageLabels = null; // the article's printed page numbers, e.g. ['534','535',…]
 let pdfZoom = 0.7; // open a few clicks below fit-to-width (roomier page); zoom buttons adjust
+// ── iPad and iPhone: canvas is a hard budget, not a soft one ──────────────
+// Safari caps how much canvas backing store one page may hold, and a page that crosses
+// the cap is not told about it. Nothing throws, nothing warns: Safari simply drops the
+// pixels of canvases already drawn, so pages that rendered perfectly go WHITE the moment
+// the reader scrolls back to them. Continuous mode hands every page of the article its
+// own canvas at devicePixelRatio 2 -- four times the pixels the layout asked for -- and a
+// twenty-page JSTOR article clears the ceiling somewhere in the middle. That is the
+// blank-page bug an iPad reader hits, and it looks for all the world like a broken PDF.
+// iPadOS calls itself "Macintosh", so the touch count is what tells an iPad from a Mac:
+// a Mac reports maxTouchPoints 0 whether or not a trackpad is attached.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+            || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+// Safari's per-canvas ceiling is about 16.7M pixels, and the whole-page allowance is far
+// less than what continuous mode wants for a long article, so the pages share it. The
+// desktop numbers are set high enough never to bind -- this arithmetic exists for iOS.
+const MAX_CANVAS_PX = IS_IOS ? 16.7e6 : 64e6;
+const CANVAS_BUDGET = IS_IOS ? 24e6 : 512e6;   // 24M px x 4 bytes = ~96 MB of canvas
+// For scale: a 36-page article, fit-width on an iPad, cost 50M pixels -- 200 MB --
+// under the old flat devicePixelRatio 2. That is the number that produced white pages.
+// The reader asked for `want` device pixels per CSS pixel. Give them exactly that while
+// the whole document still fits the budget, and past that the largest ratio that does.
+// Never below 1: a soft page is a page you can still READ, but a page rendered under its
+// own CSS size is mush, and at that point the answer is single-page mode, not fewer
+// pixels. Which is why iOS opens in single-page mode below.
+function canvasRatioFor(viewport, pageCount) {
+  const want = window.devicePixelRatio || 1;
+  const cssPx = viewport.width * viewport.height;
+  const cap = Math.min(MAX_CANVAS_PX, CANVAS_BUDGET / Math.max(1, pageCount));
+  if (!cssPx || cssPx * want * want <= cap) return want;
+  return Math.max(1, Math.sqrt(cap / cssPx));
+}
 // ── How much of the article is on screen at once ──────────────────────────
-// 'continuous' is the original behaviour and still the default: every page, scroll it.
+// 'continuous' is the original behaviour and still the default on a desktop: every page,
+// scroll it. iOS opens in 'single' instead -- not a preference but the only mode whose
+// canvas appetite is bounded, since it renders the page you are looking at rather than
+// all of them. A reader who switches to continuous still gets it; canvasRatioFor keeps
+// that honest by trading sharpness for pages that actually appear.
 // 'single' shows pdfSpread pages (1 or 2) starting at pdfPageNum. Two-up is not a third
 // mode -- it is the single-page view widened -- so the button cycles rather than the bar
 // growing a control.
-let pdfViewMode = localStorage.getItem('cr_pdf_view_mode') || 'continuous';
+let pdfViewMode = localStorage.getItem('cr_pdf_view_mode') || (IS_IOS ? 'single' : 'continuous');
+// Anyone who opened Journaler on this iPad BEFORE today already has 'continuous' written
+// to localStorage, so the iOS default one line up never gets a say: they would reload,
+// meet the very same white pages, and quite reasonably conclude nothing had been fixed.
+// So move them -- once, recorded, and never again, which leaves a later deliberate switch
+// back to continuous standing. The flag is the memory; the mode is only its first effect.
+if (IS_IOS && !localStorage.getItem('cr_ios_single_default')) {
+  pdfViewMode = 'single';
+  try {
+    localStorage.setItem('cr_ios_single_default', '1');
+    localStorage.setItem('cr_pdf_view_mode', 'single');
+  } catch {}
+}
 let pdfSpread   = (localStorage.getItem('cr_pdf_spread') === '2') ? 2 : 1;
 let pdfPageNum  = 1;
 // 'width' scales by pdfZoom against the column (what A- / A+ drive). 'page' fits the
@@ -1990,7 +2060,6 @@ async function renderPdf() {
   // reader gets a thumbnail. The 80 is the view strip plus the column's own padding.
   const top = Math.max(0, textCol.getBoundingClientRect().top);
   const availH = Math.max(240, window.innerHeight - top - 80);
-  const ratio = window.devicePixelRatio || 1;
   let first = true;
   for (const n of pages) {
     if (token !== pdfRenderToken) return; // a newer render superseded this one
@@ -2020,6 +2089,9 @@ async function renderPdf() {
     pageDiv.style.width = viewport.width + 'px';
     pageDiv.style.height = viewport.height + 'px';
     const canvas = document.createElement('canvas');
+    // Per page, not once for the document: pages of a PDF differ in size (a landscape
+    // figure among portrait text), and the budget is spent in pixels, not in sheets.
+    const ratio = canvasRatioFor(viewport, pages.length);
     canvas.width = Math.floor(viewport.width * ratio);
     canvas.height = Math.floor(viewport.height * ratio);
     canvas.style.width = viewport.width + 'px';
@@ -2174,9 +2246,15 @@ function zoomPdf(dir) {
 // started on), so the listeners belong at the window ONCE, with the active drag
 // held in one place.
 let _mq = null;
+// Pointer events, not mouse events, for the whole drag. iOS synthesises a mousedown /
+// mouseup pair for a TAP and nothing at all for a DRAG, which is precisely the gesture a
+// marquee is -- so box capture was not merely awkward on an iPad, it was inert. A pointer
+// drag from a finger also gets implicit capture on the element it began on, so the window
+// listeners below keep hearing it after the finger slides off the page it started on,
+// which is the property the old mouse version depended on and would otherwise lose.
 function attachMarquee(overlay, canvas, textLayerDiv) {
-  overlay.addEventListener('mousedown', e => {
-    if (pdfCaptureMode !== 'box' || e.button !== 0) return;
+  overlay.addEventListener('pointerdown', e => {
+    if (pdfCaptureMode !== 'box' || e.button !== 0 || !e.isPrimary) return;
     document.querySelectorAll('.marquee-box').forEach(b => b.remove());
     const r = overlay.getBoundingClientRect();
     const boxEl = document.createElement('div');
@@ -2188,7 +2266,7 @@ function attachMarquee(overlay, canvas, textLayerDiv) {
     e.preventDefault();
   });
 }
-window.addEventListener('mousemove', e => {
+window.addEventListener('pointermove', e => {
   if (!_mq) return;
   const r = _mq.overlay.getBoundingClientRect();
   const cx = e.clientX - r.left, cy = e.clientY - r.top;
@@ -2197,7 +2275,7 @@ window.addEventListener('mousemove', e => {
   _mq.boxEl.style.width = Math.abs(cx - _mq.startX) + 'px';
   _mq.boxEl.style.height = Math.abs(cy - _mq.startY) + 'px';
 });
-window.addEventListener('mouseup', e => {
+window.addEventListener('pointerup', e => {
   const mq = _mq;
   if (!mq) return;
   _mq = null;
@@ -2209,6 +2287,15 @@ window.addEventListener('mouseup', e => {
   // the one real obstacle, and it turned out to be avoidable rather than solvable.
   if (r.width < 6 || r.height < 6) { mq.boxEl.remove(); noteMarkAt(e.clientX, e.clientY); return; }
   handleMarqueeCapture(r, mq.canvas, mq.textLayerDiv);
+});
+// A mouse drag ends one way; a touch drag can also be TAKEN -- iOS hands the gesture to
+// its own scrolling or to the app switcher and fires pointercancel instead of pointerup.
+// Without this the half-drawn box stays on the page and _mq stays armed, so the reader's
+// next tap anywhere finishes a drag they abandoned a minute ago.
+window.addEventListener('pointercancel', () => {
+  if (!_mq) return;
+  _mq.boxEl.remove();
+  _mq = null;
 });
 
 // Which highlight, if any, is under that point. Smallest wins: marks overlap where a
@@ -3785,8 +3872,37 @@ function handleSelectionPopup(e) {
 // Todd traded away: while notes are pinned the margin does not scroll on its own,
 // because "beside the passage" and "wherever I left the list" cannot both be true.
 textCol.addEventListener('scroll', scheduleMarginLayout, { passive: true });
-textCol.addEventListener('mouseup', handleSelectionPopup);
-commentList.addEventListener('mouseup', handleSelectionPopup);
+// pointerup, not mouseup: it covers mouse, trackpad, pen and a finger drag in one
+// listener, on every browser we care about. It does NOT cover the way iOS actually
+// selects text -- see below -- but it is the right primitive for the rest.
+textCol.addEventListener('pointerup', handleSelectionPopup);
+commentList.addEventListener('pointerup', handleSelectionPopup);
+// iOS adjusts a selection with its own blue drag handles, and those handles are system
+// UI: dragging them sends the page no pointer events at all. The reader long-presses a
+// passage, widens it to the sentence they meant, gets Apple's Copy / Look Up callout --
+// and Journaler, which was waiting for a pointer to come back up, never hears a thing.
+// So on iOS the selection itself is the signal. Debounced, because selectionchange fires
+// on every pixel of a handle drag and the popup should appear when they stop moving; and
+// gated on the selection lying inside a pane we actually offer to capture from, since
+// this listener is on the document and hears every selection on the page.
+if (IS_IOS) {
+  let selTimer = null;
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(() => {
+      if (popup.style.display === 'block') return; // pointerup already got there
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+      const node = sel.anchorNode;
+      const host = node && (node.nodeType === 1 ? node : node.parentElement);
+      if (!host) return;
+      const pane = textCol.contains(host) ? textCol
+                 : commentList.contains(host) ? commentList : null;
+      if (!pane) return;
+      handleSelectionPopup({ currentTarget: pane, target: host });
+    }, 450);
+  });
+}
 
 popupInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); }
@@ -5214,31 +5330,77 @@ function printJournal() {
     const convoLbl = hasConvo ? '<div class="jr-lbl jr-convo-lbl">My conversation</div>' : '';
     return `<section><h2>${esc(title)}</h2>${promptHtml}${takeHtml}${hlsHtml}${convoLbl}${hasConvo ? pages : ''}</section>`;
   }).join('');
-  const w = window.open('', '_blank');
-  if (!w) { alert('Please allow pop-ups so your journal can open in a printable window.'); return; }
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Reading Journal \u2014 TCE 318P</title><style>
-    body{font-family:Georgia,'Times New Roman',serif;max-width:44rem;margin:2.5rem auto;padding:0 1.5rem;color:#1a1a1a;line-height:1.55}
-    h1{font-size:1.5rem;margin:0 0 .2rem} .sub{color:#666;font-size:.85rem;margin-bottom:2.2rem;font-family:sans-serif}
-    section{margin:0 0 2rem} h2{font-size:1.05rem;border-bottom:2px solid #333;padding-bottom:.2rem;margin:1.8rem 0 .8rem}
-    article{margin:0 0 1.3rem;break-inside:avoid} .jr-date{font-weight:bold;font-size:.9rem;font-family:sans-serif;color:#333}
-    .jr-body{margin-top:.35rem} .jr-turn{margin:.25rem 0} .jr-who{font-weight:bold;color:#333}
-    .jr-lbl{font-family:sans-serif;font-size:.72rem;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#555}
-    .jr-prompt{font-size:.92rem;color:#333;background:#f4f4ef;border-left:3px solid #888;padding:.5rem .7rem;margin:.5rem 0}
-    .jr-take{font-size:1rem;background:#eef4ee;border-left:3px solid #2f5233;padding:.6rem .8rem;margin:.6rem 0}
-    .jr-hls{margin:.6rem 0} .jr-hls ol{margin:.3rem 0 0;padding-left:1.4rem} .jr-hls li{margin:.2rem 0;font-size:.9rem}
-    .jr-src{font-weight:bold;color:#555} .jr-note{color:#666;font-style:italic}
-    .jr-page{color:#555;font-size:.82em;white-space:nowrap}
-    .jr-convo-lbl{display:block;margin:.8rem 0 .3rem}
-    .noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
-    .lead{cursor:default;padding:.7rem .9rem;background:#f4f4ef;border-left:3px solid #888;color:#333;max-width:44rem}
+  // One stylesheet, two homes. In a new tab the rules may hang off `body`; inside the app
+  // they must hang off the panel, because there they share a document with the whole of
+  // Journaler's own CSS and a bare `section` or `article` rule would repaint the app.
+  const journalCss = R => `
+    ${R}{font-family:Georgia,'Times New Roman',serif;max-width:44rem;margin:2.5rem auto;padding:0 1.5rem;color:#1a1a1a;line-height:1.55;background:#fff}
+    ${R} h1{font-size:1.5rem;margin:0 0 .2rem} ${R} .sub{color:#666;font-size:.85rem;margin-bottom:2.2rem;font-family:sans-serif}
+    ${R} section{margin:0 0 2rem} ${R} h2{font-size:1.05rem;border-bottom:2px solid #333;padding-bottom:.2rem;margin:1.8rem 0 .8rem}
+    ${R} article{margin:0 0 1.3rem;break-inside:avoid} ${R} .jr-date{font-weight:bold;font-size:.9rem;font-family:sans-serif;color:#333}
+    ${R} .jr-body{margin-top:.35rem} ${R} .jr-turn{margin:.25rem 0} ${R} .jr-who{font-weight:bold;color:#333}
+    ${R} .jr-lbl{font-family:sans-serif;font-size:.72rem;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#555}
+    ${R} .jr-prompt{font-size:.92rem;color:#333;background:#f4f4ef;border-left:3px solid #888;padding:.5rem .7rem;margin:.5rem 0}
+    ${R} .jr-take{font-size:1rem;background:#eef4ee;border-left:3px solid #2f5233;padding:.6rem .8rem;margin:.6rem 0}
+    ${R} .jr-hls{margin:.6rem 0} ${R} .jr-hls ol{margin:.3rem 0 0;padding-left:1.4rem} ${R} .jr-hls li{margin:.2rem 0;font-size:.9rem}
+    ${R} .jr-src{font-weight:bold;color:#555} ${R} .jr-note{color:#666;font-style:italic}
+    ${R} .jr-page{color:#555;font-size:.82em;white-space:nowrap}
+    ${R} .jr-convo-lbl{display:block;margin:.8rem 0 .3rem}
+    ${R} .lead{cursor:default;padding:.7rem .9rem;background:#f4f4ef;border-left:3px solid #888;color:#333;max-width:44rem;font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem}
+  `;
+  const heading = `<h1>Reading Journal</h1><div class="sub">TCE 318P · ${all.length} dated ${all.length > 1 ? 'entries' : 'entry'}</div>`;
+  const lead = `<div class="noprint lead">This is your whole Journal, assembled — every dated entry, in order.
+      Use the button to save it as a PDF, and submit that file.</div>`;
+  // A second tab is a desktop luxury. iOS ships with Block Pop-ups ON, and even when a
+  // window does open, writing into about:blank is unreliable in Safari -- which puts the
+  // one artefact this course actually collects behind a setting most students have never
+  // heard of. So iOS assembles the journal in a panel over the app and prints from there,
+  // and any browser that refuses the window lands in that same panel rather than in an
+  // alert telling the reader to go and change their settings before they may submit.
+  if (!IS_IOS) {
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Reading Journal — TCE 318P</title><style>
+    button.noprint{font-family:sans-serif;font-size:.9rem;margin-bottom:1.5rem;padding:.5rem 1rem;cursor:pointer}
+    ${journalCss('body')}
     @media print{.noprint{display:none}}
   </style></head><body>
-    <div class="noprint lead">This is your whole Journal, assembled — every dated entry, in order.
-      Use the button to save it as a PDF, and submit that file.</div>
+    ${lead}
     <button class="noprint" onclick="window.print()">Save as PDF / Print</button>
-    <h1>Reading Journal</h1><div class="sub">TCE 318P \u00b7 ${all.length} dated ${all.length > 1 ? 'entries' : 'entry'}</div>
+    ${heading}
     ${sections}</body></html>`);
-  w.document.close();
+      w.document.close();
+      return;
+    }
+  }
+  openJournalPrintPanel(journalCss('#journalPrintOverlay .jr-sheet'), lead + heading + sections);
+}
+// The journal assembled inside the app itself. On screen it is a panel over everything;
+// in print it becomes the only thing on the page, which the print rules in the stylesheet
+// arrange by HIDING THE APP rather than by moving the panel -- a position:fixed element
+// prints once, at its on-screen size, so a journal of any length would clip to page one.
+// Escape closes it, because a full-screen thing with no visible way out is how a student
+// panics at eleven at night.
+function openJournalPrintPanel(css, inner) {
+  closeJournalPrintPanel();
+  const ov = document.createElement('div');
+  ov.id = 'journalPrintOverlay';
+  ov.innerHTML = `<style>${css}</style>
+    <div class="jr-bar noprint">
+      <button class="jr-go" onclick="window.print()">\u{1F4C4} Save as PDF / Print</button>
+      <button onclick="closeJournalPrintPanel()">Close</button>
+    </div>
+    <div class="jr-sheet">${inner}</div>`;
+  document.body.appendChild(ov);
+  document.body.classList.add('printing-journal');
+  document.addEventListener('keydown', journalPanelEsc);
+}
+function journalPanelEsc(e) { if (e.key === 'Escape') closeJournalPrintPanel(); }
+function closeJournalPrintPanel() {
+  const ov = document.getElementById('journalPrintOverlay');
+  if (ov) ov.remove();
+  document.body.classList.remove('printing-journal');
+  document.removeEventListener('keydown', journalPanelEsc);
 }
 // The membrane: the student CHOOSES to turn a private note over to Socrates.
 async function shareEntryWithSocrates(id) {
