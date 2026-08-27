@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#F8F4EC"/>
+  <!-- an open book, and the one thing this app is for: a marked passage -->
+  <g fill="none" stroke="#7A3B10" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M256 150c-38-26-84-36-134-30v226c50-6 96 4 134 30 38-26 84-36 134-30V120c-50-6-96 4-134 30z"/>
+    <path d="M256 150v226"/>
+  </g>
+  <g fill="rgba(212,168,67,.55)">
+    <rect x="152" y="196" width="76" height="20" rx="4"/>
+    <rect x="152" y="240" width="62" height="20" rx="4"/>
+  </g>
+  <g fill="none" stroke="#2f5233" stroke-width="15" stroke-linecap="round">
+    <path d="M292 200h72M292 244h56M292 288h72"/>
+  </g>
+</svg>
