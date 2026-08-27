@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-27 · build 40">
+<meta name="app-version" content="2026-08-27 · build 41">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -1528,10 +1528,10 @@ button.cal-cell.selected .cal-dot { background: #fff; }
     <h2>Settings</h2>
     <div class="nb-sub">Everything here is optional. Reading, marking passages and writing your entry all work without it.</div>
     <div class="set-tabs" role="tablist">
-      <button type="button" class="set-tab on" data-set="ai"  role="tab" onclick="selectSettingsTab('ai')">Reading partner</button>
+      <button type="button" class="set-tab on" data-set="abt" role="tab" onclick="selectSettingsTab('abt')">About</button>
+      <button type="button" class="set-tab"    data-set="ai"  role="tab" onclick="selectSettingsTab('ai')">Reading partner</button>
       <button type="button" class="set-tab"    data-set="cal" role="tab" onclick="selectSettingsTab('cal')">Calendar</button>
       <button type="button" class="set-tab"    data-set="bak" role="tab" onclick="selectSettingsTab('bak')">Backups</button>
-      <button type="button" class="set-tab"    data-set="abt" role="tab" onclick="selectSettingsTab('abt')">About</button>
       <button type="button" class="set-tab"    data-set="diag" role="tab" onclick="selectSettingsTab('diag')">Diagnostics</button>
     </div>
     <div class="set-body" id="setBody"></div>
@@ -4370,7 +4370,7 @@ const APP_VERSION = (function () {
   if(document.readyState !== 'loading') paint(); else window.addEventListener('DOMContentLoaded', paint);
 })();
 const APP_REPO = 'https://github.com/OhioMathTeacher/journaler';
-let _setTab = 'ai';
+let _setTab = 'abt';   // the first tab is the one that opens
 function gearAILabel() {
   const p = getProvider();
   if (!p || p === 'none') return 'Off';
