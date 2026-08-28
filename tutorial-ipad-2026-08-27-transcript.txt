@@ -1,0 +1,43 @@
+[00:01] Hello I'm here today to talk to you a little bit about journaler using it on
+[00:07] the iPad it's really a wonderful tool on the iPad check it out first I'll talk to
+[00:16] you a little bit about how you access the software then we'll talk about some of
+[00:21] the features how to get around how to include a comment in your the readings
+[00:31] and whatnot I should mention journaler is really the tool that we use in TCE
+[00:38] 318 P to get our reading reflections done to get the assigned articles read and
+[00:49] submitted in class that's the big goal of this software so to access journaler you
+[00:56] click on tools and you'll notice that journaler is an app so it's listed under
+[01:02] the apps in our class I'm going to click on journaler and you'll notice that
+[01:08] initially journaler is not there's no article loaded or anything so you could
+[01:15] you could totally load an article by clicking on that green button what I'll
+[01:20] often do though is use the file menu you see that up says journaler 318 P
+[01:26] there's a little arrow that points down that's a hint that that's a menu and
+[01:31] you'll notice that we already have an article in here I could click on that
+[01:36] that little trash can and delete it if I wanted I can open new articles from
+[01:42] here I can save my work to a file I often do that I'll show you how to do
+[01:49] that here in a minute you can also restore your work from a file you
+[01:54] download it you can re upload it into the software there's a little tutorial
+[02:01] here about how to to use the software so to add so to get that article in here
+[02:10] let's go ahead and select it and you'll notice there's some tools here that are
+[02:16] kind of handy just to the very immediate right of the file menu there are these
+[02:23] buttons that make the text larger or you can toggle it make it smaller it's
+[02:32] kind of handy if you just want to look at one page at a time you can do the
+[02:37] single page mode the buttons still work I like continuous myself as you scroll
+[02:44] down you'll see I've already taken notes and if you click on it one of the
+[02:49] notes like let's say this one it'll take you over to the note that I had
+[02:55] written you can read that these notes by the way are editable by clicking on trim
+[03:01] here sometimes when you highlight text in the in the readings it'll it'll add extra
+[03:09] words or you know it has a tendency to to highlight entire sections and not just
+[03:16] one or two words so you might have extra words and you can delete them
+[03:20] here you know if you want to get back to the article you defeat I think if you
+[03:27] just click on here like go to page 535 it goes back let's see here you want to
+[03:35] add a new note there's our little button here it says mark passage you highlight
+[03:42] that and then you highlight what you're interested in highlighting and neat
+[03:52] kind of neat feature is you can type in your comments about the passage I found
+[04:00] this this intriguing that's not the kind I I usually type in more more
+[04:14] significant comments than that but I'm just showing you how it works if you
+[04:18] click on save note then you know you click over there there it is I found this
+[04:24] intriguing you can also click on article to go back to the article but I
+[04:33] wonder if you noticed there's another feature there let's say I pick set the
+[04:40] stage notice it also says ask Todd so there's actually you can actually ask
+[04:48] the AI to comment on your highlight I'll show you how to do that here in a
+[04:53] second but that's highlighting and notes in a nutshell

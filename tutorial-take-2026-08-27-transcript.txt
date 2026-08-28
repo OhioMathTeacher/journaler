@@ -1,0 +1,211 @@
+[00:01] Hi, I'm here today to talk to you a little bit about journaler software. It's the software. We're gonna use in class to
+[00:08] submit
+[00:10] our reading assignments among other things and so the first thing first thing you want to do is go out to our class website and
+[00:19] You'll you'll notice that there's this
+[00:23] list of
+[00:25] Things, you know like different places in the on the course website
+[00:31] I want you to click on tools
+[00:33] Because a journaler is actually a tool and you'll see underneath the apps. There's a link to journaler
+[00:41] So I'm gonna go ahead and click on it and you'll notice there's no articles
+[00:47] Loaded currently. Now, how do we get articles in here?
+[00:52] Well, the way I typically do it is I go under the settings and
+[01:00] You'll notice there's a couple of settings that are worth talking about
+[01:04] First of all, I'm writing build 43 of journaler
+[01:09] If you want to go out and see the source code
+[01:12] You can click on github. That's where I save all of my software
+[01:19] Reading partner is turned off currently
+[01:22] I'm gonna show you how to to enter Todd in a can that'll allow you to use AI
+[01:29] Inside the software you can always turn it off or back on
+[01:33] the calendar
+[01:36] Gives you access to
+[01:38] days that you wrote
+[01:41] There's a literally a full calendar in the software. I'll show you that in a little bit
+[01:46] but really right now what we're into our backups and
+[01:51] I will save
+[01:54] Pretty much after each session when I use the software I save a backup just to be careful
+[02:00] You can restore these backups by clicking on that. I'm gonna go ahead and restore a backup
+[02:06] so I click on restore and
+[02:11] This is from today at
+[02:14] 1217
+[02:15] Does that sound right? Does that sound right? Actually, I want to I'm gonna pick this one and it says import 14 saved items
+[02:27] It's gonna overwrite
+[02:29] What's already in here? I want to do that and now now if you go here
+[02:36] You'll notice
+[02:40] Underneath here. This is a this is a file menu and you'll notice
+[02:45] Now our reading is here if I want to delete it I can click on that
+[02:50] trash can
+[02:51] But I want to keep it for now. You can open new articles this way, too
+[02:56] You can save your work or restore a backup from here as well
+[03:02] so this is the same thing as if I
+[03:07] Went over here and went to backups the save and restore is exactly the same thing as
+[03:13] Save and restore here just multiple ways for you to find it
+[03:18] Now I'm gonna go back to the settings and I want to show you this last feature called diagnostics
+[03:25] But that what this panel is all about is if you want to update the software
+[03:30] Make sure you have the latest version. You can do that by clicking here
+[03:34] If something's not working
+[03:38] Do me a favor and type in
+[03:43] The trouble you've been having and you can click here and email me the
+[03:49] Report about what's going on. There's also a diagnostic report
+[03:54] That you could send me. It's kind of hidden in here
+[03:58] the software saves
+[04:04] Just what it does not not any of your data or anything, but like the screen
+[04:12] Page hide starting sessions when they're when they're bugs
+[04:17] The event log is really helpful to figure out what's going on
+[04:22] So I wanted to let you know about that. You're like, you're welcome. Please please send me
+[04:26] Notes about things that are or not working
+[04:31] Okay, so that's that's basically this I do want to
+[04:34] Engage my reading partner
+[04:36] So I'm gonna you notice it says Todd McCann is turned off
+[04:42] So I want to turn him on he's a he's a AI model. So we're gonna go here to choose and
+[04:50] I'm very fond of
+[04:53] free models, there's a
+[04:56] Site in particular called grock not Elon Musk grock, but grock with a cue
+[05:03] they offer
+[05:05] free models online
+[05:08] so you need a key think of the key like a
+[05:12] Key to a door, but this door opens up AI
+[05:17] It's called an API key. So we're gonna get a key
+[05:21] By clicking here on get a key and that takes me to this
+[05:28] place
+[05:30] grock
+[05:32] This is the area of their website where they provide API keys
+[05:36] so I'm gonna go ahead and click on create an API key and I'm gonna call this a
+[05:43] TCE
+[05:45] 318 p
+[05:49] Testing and I'll set it for no expiration. So you just click submit it will give you this really long string of
+[06:00] digits
+[06:02] starting with
+[06:03] GSK you copy that and
+[06:09] By the way after you copy it, you'll never see it again. If you try to if you try to look at it here
+[06:14] You'll never see it again. You can change the name but not the number
+[06:19] so
+[06:22] After I copy it, I typically paste them
+[06:25] Somewhere enough document so I can use them more than once
+[06:30] Anyway, you go back to journaler now with that key and you paste it in here
+[06:37] Goes in there and you say save and you'll notice if you look kind of carefully right here
+[06:46] It now says that Todd McCann is enacted with grock
+[06:50] So we're good
+[06:53] Okay
+[06:54] so next thing probably next thing to talk about is
+[06:58] Taking notes in the software. So a couple things that worth mentioning
+[07:03] You'll see their notes here already
+[07:05] If I click on a note
+[07:07] It takes me to the comment over here. These are my notes off on the side
+[07:13] If I click off on a note on the side, this is good at page 540
+[07:19] That's where that quote was so I can and I can click
+[07:23] I could go in the document. Let me go
+[07:28] About here
+[07:31] Seeing it shows me I can click that way as well figure out where these quotes are. Are you with me?
+[07:38] so to add a new comment
+[07:42] You just go in the PDF and you highlight something that's interesting to you
+[07:50] So it says our our close attention enabled us to notice students reasoning in action
+[07:59] As a process that grew out of a context. So
+[08:03] It's interesting
+[08:07] how
+[08:10] some teachers
+[08:14] Sit at their desk
+[08:19] while
+[08:20] Kids are working
+[08:21] That's a that's that's a shame
+[08:28] because we learn about
+[08:30] By talking to them actually by listening to them
+[08:39] So yeah close attention. That's what we need
+[08:48] So I'm gonna save that note and it's right down there. Check it out now
+[08:58] So that it's as easy as that to add a note
+[09:00] Now, I don't know if you noticed it, but let me highlight another passage
+[09:06] It says save note, but there's also this ask Todd. What is this? You'll notice there's a little can right there
+[09:14] This is Todd in a can
+[09:16] So I'm gonna click on that and it says that line
+[09:24] See I highlighted this line
+[09:27] That line hints the art that the heart article shows a real-world classroom snapshot of students actually
+[09:35] Moving and strategizing. So which vignette caught my eye. I
+[09:44] Like the one about
+[09:48] Wasn't it a fellow
+[09:57] Did you?
+[10:00] catch that
+[10:01] Detail in the article. I'm really curious to see what it says about that
+[10:08] So yeah, like this is how it works, right?
+[10:13] It's taking its time thinking right now. I will come back
+[10:17] Todd is tired. This is Todd in a can
+[10:25] Okay, so we've talked about highlighting this is this is pretty interesting
+[10:31] That's okay. I want you. I want to encourage you to kind of click on some buttons. Look around
+[10:36] This these buttons
+[10:38] so smaller
+[10:41] larger what that does is it makes the
+[10:44] pages smaller and larger this
+[10:49] Button right here. You see where it says two pages that toggles to one page if you want
+[10:56] easier to read
+[10:58] Right now I only have one page on the screen, but if you click continuous
+[11:03] You can scroll through the entire
+[11:07] Article, it's a nice way to do it. This was a really nice
+[11:16] about prompts
+[11:20] anyway
+[11:22] Then this fit page
+[11:24] It'll move it. So exactly one page fits on it at that particular height
+[11:32] Okay, that's good. And then if you go over here, I showed the class
+[11:38] There's a button called
+[11:41] Journal
+[11:43] Remember that we have five weeks of class before field with this your journal does is
+[11:50] Gives you a report on how you're doing your progress how much you have to go
+[11:56] So this says that I'm not finished with
+[12:01] The first reading assignment yet, but I'm getting there right so I could click on open and go there
+[12:08] But it's right behind the screen
+[12:10] so
+[12:16] Let's go ahead and finish this off and then I'll show you how we can print out your journal assignment
+[12:22] You know in week five you have to turn that in I want to show you how this tool will
+[12:27] Will help you to print out a report
+[12:31] So let's let's go ahead and finish this entry. So it says this week's entry
+[12:36] You'll notice that the prompts that I typed in
+[12:43] Actually are
+[12:44] Unlisted here
+[12:46] I'm gonna put this in full screen
+[12:49] They're all listed here to help me remember what was important to me. And then what?
+[12:56] What you're gonna do here is
+[13:00] Answer this prompt for this particular reading. It says engagement. How do games engage students in math?
+[13:08] What instructional aims do we have to protect when we use them?
+[13:12] Etc. You're gonna answer the question here
+[13:20] Here, you know, give me a
+[13:26] solid paragraph or two would be nice and
+[13:30] It says state my take
+[13:35] Down here. It says
+[13:38] Todd in a can hey, look at that
+[13:42] That was a Todd McCann's first comment to me
+[13:46] so all of your
+[13:49] conversation with
+[13:50] Todd McCann about the article will appear down here
+[13:55] And so check this out. Let's say you're done. You've typed something in
+[14:00] You are feel comfortable with the conversation. You've had what you do is you go to save and close
+[14:07] And what that does then it's like what did that do?
+[14:14] Well, if you go back out to the journal
+[14:18] You'll notice that now the first entry is complete. That's because I have
+[14:24] Comments I type something in the response and I have
+[14:30] You know, it's just been done. I have an optional AI work there underneath
+[14:35] so
+[14:38] Imagine after five weeks you've done that dutifully each week. You've read the article put some comments you've engaged with
+[14:46] Todd AI if you want to
+[14:50] All of these will have check marks on them and then what you can do
+[14:55] is click on assemble journal and
+[14:58] as the note says
+[15:00] Let's see if I get that to hover over it assembles every entry into a document
+[15:07] And saves all of these documents as a PDF. So I'm gonna assemble the journal
+[15:15] this is what the
+[15:17] The first entry looks like it it shares this prompt and then your take
+[15:24] Mine's short because I didn't type much
+[15:27] Then it shows all the places you highlighted
+[15:32] down here
+[15:37] Well, that's it. That's it. So
+[15:41] You know my Todd and the can all that
+[15:44] What you need to do to share this with me is actually
+[15:48] Save it as a PDF and and in fact when you click on this
+[15:52] you will see
+[16:00] you know the work and it'll actually have all of the
+[16:04] Journal readings in here. What you're gonna do is save
+[16:08] This and then submit it to canvas. It'll have all the journal readings in it. It's kind of nifty
+[16:16] So that's really half of the first five weeks each each week. We're doing we're reading one journal article. We're
+[16:26] Engaging the text and talking about it. But the other thing that's going on are these weekly
+[16:38] weekly pedagogical
+[16:41] We'll cut it right here at 16 minutes
+[16:56] Okay, so that's how
+[16:59] That's how you submit
+[17:01] your journal
+[17:05] Report at the end of the fifth week now a couple other things I want to share with you
