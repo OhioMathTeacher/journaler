@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-30 · build 47">
+<meta name="app-version" content="2026-08-30 · build 48">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -2380,6 +2380,7 @@ function loadFromPaste() {
 }
 
 function clearCustomText() {
+  forgetLastArticle();
   customText = null;
   releasePdf(pdfDoc); pdfDoc = null;
   pendingImport = null;
@@ -2415,6 +2416,56 @@ async function savePdfBytes(id, arrayBuffer) {
     });
   } catch (e) { console.warn('savePdfBytes', e); }
 }
+// ── Reopen the article you were last reading. Todd, 2026-08-30: "It's kind of annoying
+// to have to reload articles." Nothing was missing — the PDF's bytes are cached in
+// IndexedDB from the first open and the notes are in localStorage — but customText starts
+// null on every boot and cr_current_reading only ever tracked the BUILT-IN readings, so
+// the app opened on "No article open yet" and made the reader pick something it already
+// had. This remembers the id and nothing else; the bytes and notes were always there.
+const LAST_ARTICLE_KEY = 'cr_last_article';
+function rememberLastArticle(id) {
+  try { if (id && id.indexOf('custom:') === 0) localStorage.setItem(LAST_ARTICLE_KEY, id); } catch (e) {}
+}
+function forgetLastArticle(id) {
+  // Called with an id when a specific article goes, or with nothing when the reader
+  // closes whatever is open. Deleting a DIFFERENT article must not clear the memory.
+  try {
+    if (id && localStorage.getItem(LAST_ARTICLE_KEY) !== id) return;
+    localStorage.removeItem(LAST_ARTICLE_KEY);
+  } catch (e) {}
+}
+// Ask whether the bytes are there WITHOUT reading them — an article can be megabytes,
+// and this runs on every boot. If the cache was cleared, forget the article and leave
+// the reader on the normal opening screen rather than a half-opened one.
+async function hasPdfBytes(id) {
+  try {
+    const db = await _pdfDB();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction('pdfs', 'readonly');
+      const r = tx.objectStore('pdfs').count(id);
+      r.onsuccess = () => res(r.result > 0);
+      r.onerror = () => rej(r.error);
+    });
+  } catch (e) { return false; }
+}
+async function restoreLastArticle() {
+  let id = null;
+  try { id = localStorage.getItem(LAST_ARTICLE_KEY); } catch (e) {}
+  if (!id || customText) return;          // nothing to restore, or something already open
+  // ⚠ pdf.js ARRIVES LATER THAN THIS SCRIPT. window.pdfjsLib is assigned by the
+  // <script type="module"> further up, and module scripts are DEFERRED — the whole
+  // point of a module is that it runs after every classic script on the page. Calling
+  // this straight from the boot sequence therefore raised "ReferenceError: pdfjsLib is
+  // not defined" inside switchToReading, where its own catch turned it into a
+  // console.warn and the article simply never came back. Wait for it, and give up
+  // quietly if it never turns up at all rather than opening a half-dead reader.
+  for (let i = 0; i < 100 && !window.pdfjsLib; i++) await new Promise(r => setTimeout(r, 50));
+  if (!window.pdfjsLib) { console.warn('restoreLastArticle: pdf.js never loaded'); return; }
+  if (!(await hasPdfBytes(id))) { forgetLastArticle(); return; }
+  try { await switchToReading(encodeURIComponent(id)); }
+  catch (e) { console.warn('restoreLastArticle', e); }
+}
+
 async function loadPdfBytes(id) {
   try {
     const db = await _pdfDB();
@@ -2503,6 +2554,7 @@ async function openPdfAsReader(file) {
       source: '', fileName: file.name, fileType: 'pdf', isPdf: true
     };
     pendingImport = null;
+    rememberLastArticle(currentReadingId());
     await detectAndSetPromptWeek(pdfDoc, customText);  // pick this week's prompt from the PDF
     savePdfBytes(currentReadingId(), cacheBytes);
     closeLoadModal();
@@ -4401,6 +4453,7 @@ async function removeReading(encId) {
     try { localStorage.removeItem(pre + id); } catch {}
   });
   deletePdfBytes(id);
+  forgetLastArticle(id);
   if (id === currentReadingId()) {
     customText = null; releasePdf(pdfDoc); pdfDoc = null; pendingImport = null;
     const btn = document.getElementById('loadBtn');
@@ -4423,6 +4476,7 @@ async function switchToReading(encId) {
   const author = bar >= 0 ? body.slice(bar + 1) : '';
   releasePdf(pdfDoc); pdfDoc = null;
   customText = { title, author, source: '', fileName: '', fileType: 'pdf', isPdf: true };
+  rememberLastArticle(id);
   pendingImport = null;
   const btn = document.getElementById('loadBtn');
   if (btn) { btn.classList.add('has-custom'); btn.textContent = '\u2713 ' + truncate(title, 22); }
@@ -7021,6 +7075,9 @@ if (comments.length > 0) {
 }
 updateAIBtn();
 updateSaveBtn(); // reflect that nothing's unsaved yet this session
+// Last, and deliberately not awaited: the app is already usable, and the article
+// arrives into it a moment later rather than holding up the first paint.
+restoreLastArticle();
 
 // Take-it-with-you nudge: if there are unsaved changes, warn before leaving so
 // work isn't lost on a shared computer that wipes site data on logout.

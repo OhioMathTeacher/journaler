@@ -10,7 +10,15 @@
 // is missing, and paintNoteMarks appends the mark straight onto the div — so removing
 // pages would strand every note AND erase every mark.
 (function(){
-  var OUT = [], ERRS = [];
+  var OUT = [], ERRS = [];   // OUT is reassigned in pass 3 from sessionStorage
+  // This IIFE runs immediately after the app's own script, so the hook is in place
+  // before restoreLastArticle's async work can report anything.
+  var WARNS = [];
+  ['warn', 'error'].forEach(function(k){
+    var orig = console[k];
+    console[k] = function(){ try { WARNS.push(k + ': ' + [].slice.call(arguments).map(String).join(' ')); } catch(e){}
+                             return orig.apply(console, arguments); };
+  });
   var RID = 'custom:PROBE|', NPAGES = 30, NNOTES = 12;
   window.addEventListener('error', function(e){ ERRS.push('error: ' + (e.message || e)); });
   window.addEventListener('unhandledrejection', function(e){ ERRS.push('reject: ' + (e.reason && e.reason.message || e.reason)); });
@@ -77,6 +85,7 @@
   }
 
   async function run(){
+    if(sessionStorage.getItem('probePass') === '3'){ await pass3(); return; }
     if(sessionStorage.getItem('probePass') !== '2'){ await seedAndReload(); return; }
     await sleep(600);
     ok('S1 the app exposes its own functions to drive', typeof switchToReading === 'function');
@@ -189,6 +198,44 @@
     ok('S23 and the second document is destroyed too, not leaked', destroyed >= was + 1,
        (destroyed - was) + ' more destroy() calls (total ' + destroyed + ')');
 
+    // ── R · reopening the article you were last reading, across a real reload.
+    // The pass-3 trick: reload once more and assert the app came back INTO the article
+    // instead of the "No article open yet" screen.
+    await switchToReading(encodeURIComponent(RID));
+    for(var rr = 0; rr < 60 && pageDivs() < NPAGES; rr++) await sleep(250);
+    await sleep(400);
+    var remembered = localStorage.getItem('cr_last_article');
+    ok('R1 the open article is remembered', remembered === RID, JSON.stringify(remembered));
+    sessionStorage.setItem('probePass', '3');
+    sessionStorage.setItem('probeOut', JSON.stringify(OUT));
+    location.reload();
+    return;   // pass 3 picks it up below
+  }
+
+  async function pass3(){
+    OUT = JSON.parse(sessionStorage.getItem('probeOut') || '[]');
+    // No switchToReading call here on purpose — booting is the whole test.
+    ok('R1a REPORT ONLY — state as pass 3 begins', true,
+       'key=' + JSON.stringify(localStorage.getItem('cr_last_article')) +
+       ' customText=' + (typeof customText === 'undefined' ? 'undefined' : (customText ? 'set' : 'null')) +
+       ' pdfDoc=' + (typeof pdfDoc === 'undefined' ? 'undefined' : !!pdfDoc) +
+       ' restoreLastArticle=' + (typeof restoreLastArticle) +
+       ' hasPdfBytes=' + (typeof hasPdfBytes));
+    try { ok('R1b REPORT ONLY — are the bytes still cached?', true, String(await hasPdfBytes('custom:PROBE|'))); }
+    catch(e){ ok('R1b REPORT ONLY — are the bytes still cached?', true, 'threw: ' + (e && e.message)); }
+    var opened = false;
+    for(var i = 0; i < 80; i++){ if(pageDivs() >= NPAGES){ opened = true; break; } await sleep(250); }
+    await sleep(600);
+    ok('R1c REPORT ONLY — what the console said during boot', true, WARNS.slice(0, 4).join(' || ') || '(nothing)');
+    ok('R2 the app reopens it on its own after a reload', opened, pageDivs() + ' divs, no switchToReading called');
+    ok('R3 with its notes back beside it', noteMarks() === NNOTES, noteMarks() + ' marks');
+    var d = cardDrift();
+    ok('R4 and the notes are on their marks', d.orphans === 0 && d.worst <= 2, 'orphans=' + d.orphans + ' worst=' + d.worst.toFixed(2) + 'px');
+
+    // and it must NOT try when the cached bytes have gone
+    if(typeof clearCustomText === 'function'){ clearCustomText(); await sleep(300); }
+    ok('R5 closing the article forgets it, so the app opens clean next time',
+       localStorage.getItem('cr_last_article') === null, JSON.stringify(localStorage.getItem('cr_last_article')));
     finish();
   }
 
