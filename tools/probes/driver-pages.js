@@ -81,8 +81,20 @@
     await sleep(600);
     ok('S1 the app exposes its own functions to drive', typeof switchToReading === 'function');
     if(typeof switchToReading !== 'function') return finish();
-    await switchToReading(encodeURIComponent(RID));
-    for(var i = 0; i < 120 && pageDivs() < NPAGES; i++) await sleep(250);
+    // ⏱ How long the READER waits. Two different numbers and they are not the same
+    // question: when does the first page appear (what "opening" feels like), and when is
+    // the article fully laid out.
+    var t0 = performance.now(), tFirstCanvas = 0, tAllDivs = 0;
+    switchToReading(encodeURIComponent(RID));
+    for(var i = 0; i < 400; i++){
+      if(!tFirstCanvas && document.querySelector('.pdf-page > canvas')) tFirstCanvas = performance.now() - t0;
+      if(!tAllDivs && pageDivs() >= NPAGES) tAllDivs = performance.now() - t0;
+      if(tFirstCanvas && tAllDivs) break;
+      await sleep(25);
+    }
+    ok('T1 TIMING — first page visible', true, tFirstCanvas ? Math.round(tFirstCanvas) + ' ms' : 'never');
+    ok('T2 TIMING — all ' + NPAGES + ' page divs laid out', true, tAllDivs ? Math.round(tAllDivs) + ' ms' : 'never');
+    for(var i2 = 0; i2 < 120 && pageDivs() < NPAGES; i2++) await sleep(250);
     ok('S2 every page of the article has a div from the start', pageDivs() === NPAGES, pageDivs() + ' divs');
 
     await sleep(1000);
