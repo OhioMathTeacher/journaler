@@ -1,3 +1,10 @@
 node_modules/
 .DS_Store
 src-tauri/target/
+
+# Throwaway pages and the probe article that tools/probes/run.py builds, then deletes.
+_p_*.html
+_p_*.pdf
+
+# Python bytecode from the tools/ scripts.
+tools/__pycache__/

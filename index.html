@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-27 · build 46">
+<meta name="app-version" content="2026-08-30 · build 47">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -1947,6 +1947,36 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 let customText = null; // null = use built-in TEXTS; object = user-loaded text
 let pendingImport = null;
 let pdfDoc = null;      // loaded PDFDocumentProxy when a PDF is open
+// Which pages currently hold a canvas is decided by two IntersectionObservers set up per
+// render (see renderPdfPages, PHASE 2). They watch divs that a later render throws away,
+// so they are torn down whenever the document goes or the pane is rebuilt.
+let _pageIO = [];
+function stopPageObservers() { _pageIO.forEach(o => { try { o.disconnect(); } catch (e) {} }); _pageIO = []; }
+// ⚠ A pdf.js DOCUMENT MUST BE DESTROYED, not merely dropped. PDFDocumentProxy keeps its
+// data on the WORKER side; releasing the reference here frees the handle and none of the
+// memory behind it. pdfDoc was set to null or reassigned in five places and destroy()
+// appeared nowhere in this file, so every article a student opened stayed resident for
+// the life of the tab — and the shelf keeps every article they have ever opened.
+// (Found 2026-08-30 while porting the same fix from journaler-284, build 205.)
+// destroy() rejects if a render is still in flight, which is ordinary here — an article
+// switched mid-render is the common case — so the rejection is swallowed.
+function releasePdf(d, keep) {
+  if (!d || d === keep) return;
+  stopPageObservers();
+  // ⚠ IT IS THE LOADING TASK THAT HAS destroy(), NOT THE DOCUMENT. In pdf.js 6.0.227
+  // PDFDocumentProxy exposes cleanup(), loadingTask and no destroy at all — so
+  // `d.destroy()` throws a TypeError that a try/catch like this one swallows without a
+  // word. journaler-284 shipped exactly that as its build 205 and freed NOTHING while
+  // reporting that it did; this port was written the same way and had the same hole.
+  // Found 2026-08-30 only because a probe COUNTED the calls instead of trusting the
+  // code. Never silently accept "no way to destroy": say so, loudly, so the next pdf.js
+  // bump cannot repeat it.
+  const task = (d.loadingTask && typeof d.loadingTask.destroy === 'function') ? d.loadingTask
+             : (typeof d.destroy === 'function' ? d : null);
+  if(!task){ console.warn('releasePdf: this pdf.js build exposes no destroy() — nothing was freed'); return; }
+  // destroy() rejects when a render is still in flight, which is ordinary here.
+  try { const p = task.destroy(); if(p && p.catch) p.catch(() => {}); } catch(e){ console.warn('releasePdf', e); }
+}
 let pdfRenderToken = 0; // guards against interleaved re-renders
 let pdfCaptureMode = 'box'; // 'box' = drag-to-capture · 'select' = native text selection
 // A finger has one gesture and the page wants two of them. The capture overlay covers
@@ -2198,6 +2228,11 @@ async function extractPdfText(arrayBuffer) {
     pages.push(lines.join('\n'));
   }
   const metadata = await pdf.getMetadata().catch(() => null);
+  // ⚠ THIS IS A SECOND WHOLE DOCUMENT. Text extraction parses the same bytes again,
+  // separately from the one the reader is looking at, and this function used to return
+  // without giving it back — so every article imported leaked an entire parsed document
+  // on top of the one it opened. journaler-284 never had this path; it is 318P's own.
+  releasePdf(pdf);
   return {
     raw: pages.join('\n\n').trim(),
     meta: {
@@ -2346,7 +2381,7 @@ function loadFromPaste() {
 
 function clearCustomText() {
   customText = null;
-  pdfDoc = null;
+  releasePdf(pdfDoc); pdfDoc = null;
   pendingImport = null;
   closeLoadModal();
   const btn = document.getElementById('loadBtn');
@@ -2455,7 +2490,9 @@ async function openPdfAsReader(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const cacheBytes = arrayBuffer.slice(0); // keep a copy before pdf.js detaches the buffer
+    const _prevDoc = pdfDoc;
     pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer, ...window.PDF_DOC_OPTS }).promise;
+    releasePdf(_prevDoc, pdfDoc);
     appLog.info('article', 'opened “' + file.name + '” — ' + pdfDoc.numPages + ' pages',
                 { bytes: cacheBytes.byteLength });
     let info = {};
@@ -2569,7 +2606,30 @@ async function renderPdf() {
   const top = Math.max(0, textCol.getBoundingClientRect().top);
   const availH = Math.max(240, window.innerHeight - top - 80);
   const ratio = window.devicePixelRatio || 1;
-  let first = true;
+
+  // ══ PHASE 1 · every page div, at its true size, before anything is drawn ═══════
+  //
+  // ⚠ THE PAGE DIVS ARE NOT NEGOTIABLE. layoutMarginNotes anchors every note to the
+  // LIVE RECT of .pdf-page[data-page="N"] (via pageEl), and paintNoteMarks appends the
+  // mark itself straight onto that div. A page that leaves the DOM takes both with it:
+  // the note is parked at the top of the column as an orphan and its mark on the page
+  // is simply gone. So virtualising by removing page divs — the obvious way to do this
+  // — is exactly the thing that must not happen. Every page keeps a div for as long as
+  // the article is open, and only the canvas, the text layer and the capture overlay
+  // come and go inside it.
+  //
+  // getViewport is arithmetic over numbers pdf.js already has — no rendering, no image
+  // decode — so the article's full height is right from the first paint and nothing
+  // below the fold shifts under the reader later.
+  const slots = new Map();
+  let attached = false;
+  const attach = () => {
+    if (attached) return;
+    textCol.innerHTML = '';
+    if (bar) textCol.appendChild(bar);
+    textCol.appendChild(wrap);
+    attached = true;
+  };
   for (const n of pages) {
     if (token !== pdfRenderToken) return; // a newer render superseded this one
     const page = await doc.getPage(n);
@@ -2597,40 +2657,112 @@ async function renderPdf() {
     pageDiv.dataset.page = n;
     pageDiv.style.width = viewport.width + 'px';
     pageDiv.style.height = viewport.height + 'px';
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(viewport.width * ratio);
-    canvas.height = Math.floor(viewport.height * ratio);
-    canvas.style.width = viewport.width + 'px';
-    canvas.style.height = viewport.height + 'px';
-    pageDiv.appendChild(canvas);
-    const tlDiv = document.createElement('div');
-    tlDiv.className = 'textLayer';
-    tlDiv.style.setProperty('--scale-factor', scale);
-    tlDiv.style.setProperty('--total-scale-factor', scale);
-    pageDiv.appendChild(tlDiv);
-    const overlay = document.createElement('div');
-    overlay.className = 'marquee-overlay';
-    overlay.style.pointerEvents = (pdfCaptureMode === 'box' && marqueeArmed) ? 'auto' : 'none';
-    pageDiv.appendChild(overlay);
-    attachMarquee(overlay, canvas, tlDiv);
     wrap.appendChild(pageDiv);
-    if (first) { textCol.innerHTML = ''; if (bar) textCol.appendChild(bar); textCol.appendChild(wrap); first = false; }
-    await page.render({
-      canvasContext: canvas.getContext('2d'), viewport,
-      transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null
-    }).promise;
-    if (token !== pdfRenderToken) return;
+    attach();
+    slots.set(n, { div: pageDiv, page, viewport, scale, unit, state: 'empty', task: null });
+  }
+  if (token !== pdfRenderToken) return;
+  // Marks are positioned in PERCENTAGES of the page box and come from the notes, not
+  // from the canvas — so they are correct on a page that has never been drawn, and no
+  // eviction below can disturb them.
+  paintNoteMarks();
+  layoutMarginNotes();
+
+  // ══ PHASE 2 · the canvas follows the viewport ═════════════════════════════════
+  //
+  // ⚠ REMOVE BY NAME, NEVER WHOLESALE. .note-mark is appended directly to .pdf-page,
+  // as a sibling of the canvas and the text layer. pageDiv.innerHTML = '' would erase
+  // every mark the reader has made on that page. Take the canvas, the text layer and
+  // the capture overlay; leave everything else alone.
+  const strip = s => s.div
+    .querySelectorAll(':scope > canvas, :scope > .textLayer, :scope > .marquee-overlay')
+    .forEach(el => el.remove());
+
+  const drop = n => {
+    const s = slots.get(n);
+    if (!s || s.state === 'empty') return;
+    // Never pull a page out from under a box drag happening on it.
+    if (_mq && _mq.overlay && s.div.contains(_mq.overlay)) return;
+    if (s.task) { try { s.task.cancel(); } catch (e) {} s.task = null; }
+    s.state = 'empty';
+    strip(s);
+    // The bitmap is not the whole cost: pdf.js keeps a decoded operator list, font data
+    // and an image cache per page. cleanup() is guarded internally against firing
+    // mid-render, and the task above is cancelled first.
+    try { s.page.cleanup(); } catch (e) {}
+  };
+
+  const fill = async n => {
+    const s = slots.get(n);
+    if (!s || s.state !== 'empty' || token !== pdfRenderToken) return;
+    s.state = 'filling';
+    // Between every await the page may have been evicted or a newer render started.
+    const live = () => token === pdfRenderToken && s.state === 'filling';
     try {
-      const tc = await page.getTextContent();
-      try { tc.items = orderByReadingColumns(dedupeTextItems(tc.items), unit.width); } catch (e2) { console.warn('column order', e2); }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(s.viewport.width * ratio);
+      canvas.height = Math.floor(s.viewport.height * ratio);
+      canvas.style.width = s.viewport.width + 'px';
+      canvas.style.height = s.viewport.height + 'px';
+      s.div.appendChild(canvas);
+      const tlDiv = document.createElement('div');
+      tlDiv.className = 'textLayer';
+      tlDiv.style.setProperty('--scale-factor', s.scale);
+      tlDiv.style.setProperty('--total-scale-factor', s.scale);
+      s.div.appendChild(tlDiv);
+      const overlay = document.createElement('div');
+      overlay.className = 'marquee-overlay';
+      overlay.style.pointerEvents = (pdfCaptureMode === 'box' && marqueeArmed) ? 'auto' : 'none';
+      s.div.appendChild(overlay);
+      attachMarquee(overlay, canvas, tlDiv);
+      s.task = s.page.render({
+        canvasContext: canvas.getContext('2d'), viewport: s.viewport,
+        transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null
+      });
+      await s.task.promise;
+      s.task = null;
+      if (!live()) { strip(s); return; }
+      // The text layer goes with the canvas and rebuilds from getTextContent() on the
+      // way back in. Everything that reads a text layer here acts on the page the reader
+      // is touching — attachMarquee is handed its own page's — and you cannot drag a box
+      // across a page you cannot see.
+      const tc = await s.page.getTextContent();
+      if (!live()) { strip(s); return; }
+      try { tc.items = orderByReadingColumns(dedupeTextItems(tc.items), s.unit.width); } catch (e2) { console.warn('column order', e2); }
       tlDiv.textContent = ''; // never stack a second text layer into the same div
-      const tl = new pdfjsLib.TextLayer({ textContentSource: tc, container: tlDiv, viewport });
+      const tl = new pdfjsLib.TextLayer({ textContentSource: tc, container: tlDiv, viewport: s.viewport });
       await tl.render();
-    } catch (e) { console.warn('text layer page ' + n, e); }
-    // Repaint as pages arrive, so marks appear with the page instead of after the
-    // whole document finishes -- and so a zoom re-render never loses them.
-    paintNoteMarks();
-    layoutMarginNotes();   // pages arrive one at a time; notes follow each one in
+      if (!live()) { strip(s); return; }
+      s.state = 'filled';
+    } catch (e) {
+      // A cancelled render is ordinary — it is what eviction does to a page still
+      // drawing — and is not worth a console line.
+      if (!(e && (e.name === 'RenderingCancelledException' || /cancel/i.test(String(e.message || ''))))) console.warn('page ' + n, e);
+      s.state = 'empty';
+      strip(s);
+    }
+  };
+
+  stopPageObservers();
+  if (single || !slots.size) {
+    // One page, or a two-page spread. Both are on screen by definition.
+    for (const n of pages) { if (token !== pdfRenderToken) return; await fill(n); }
+  } else {
+    // root:null on purpose — intersection against the VIEWPORT is correct whichever
+    // element is doing the scrolling, because the algorithm clips the target through
+    // every ancestor on the way up. Two bands, not one: draw within a viewport of the
+    // reader, let go only well beyond it, so a page on the boundary cannot flip between
+    // drawn and blank on every small scroll.
+    const ioFill = new IntersectionObserver(es => {
+      if (token !== pdfRenderToken) return;
+      es.forEach(e => { if (e.isIntersecting) fill(+e.target.dataset.page); });
+    }, { root: null, rootMargin: '100% 0px' });
+    const ioKeep = new IntersectionObserver(es => {
+      if (token !== pdfRenderToken) return;
+      es.forEach(e => { if (!e.isIntersecting) drop(+e.target.dataset.page); });
+    }, { root: null, rootMargin: '250% 0px' });
+    slots.forEach(s => { ioFill.observe(s.div); ioKeep.observe(s.div); });
+    _pageIO = [ioFill, ioKeep];
   }
   paintNoteMarks();
   // Notes saved before the cover was recognised still carry the old citation.
@@ -4270,7 +4402,7 @@ async function removeReading(encId) {
   });
   deletePdfBytes(id);
   if (id === currentReadingId()) {
-    customText = null; pdfDoc = null; pendingImport = null;
+    customText = null; releasePdf(pdfDoc); pdfDoc = null; pendingImport = null;
     const btn = document.getElementById('loadBtn');
     if (btn) { btn.classList.remove('has-custom'); btn.textContent = 'Open article'; }
     renderText();
@@ -4289,7 +4421,7 @@ async function switchToReading(encId) {
   const bar = body.lastIndexOf('|');
   const title = bar >= 0 ? body.slice(0, bar) : body;
   const author = bar >= 0 ? body.slice(bar + 1) : '';
-  pdfDoc = null;
+  releasePdf(pdfDoc); pdfDoc = null;
   customText = { title, author, source: '', fileName: '', fileType: 'pdf', isPdf: true };
   pendingImport = null;
   const btn = document.getElementById('loadBtn');
@@ -4300,7 +4432,16 @@ async function switchToReading(encId) {
   const bytes = await loadPdfBytes(id);
   if (id !== currentReadingId()) return; // user switched again while loading
   if (bytes) {
-    try { pdfDoc = await pdfjsLib.getDocument({ data: bytes, ...window.PDF_DOC_OPTS }).promise; } catch (e) { pdfDoc = null; console.warn('render cached pdf failed', e); }
+    // ⚠ THE READER CAN SWITCH AGAIN WHILE THIS PARSES. The guard above runs BEFORE the
+    // parse, so a document finished after the reader moved on used to be assigned anyway
+    // — orphaned on the next switch, never destroyed. Clicking down a shelf is exactly
+    // how you get there.
+    let _doc = null;
+    try { _doc = await pdfjsLib.getDocument({ data: bytes, ...window.PDF_DOC_OPTS }).promise; }
+    catch (e) { console.warn('render cached pdf failed', e); }
+    if (id !== currentReadingId()) { releasePdf(_doc); return; }
+    releasePdf(pdfDoc, _doc);
+    pdfDoc = _doc;
   }
   renderText();
   await detectAndSetPromptWeek(pdfDoc, customText);       // this reading's prompt follows the PDF
