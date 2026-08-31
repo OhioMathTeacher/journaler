@@ -13,6 +13,9 @@
   var OUT = [], ERRS = [];   // OUT is reassigned in pass 3 from sessionStorage
   // This IIFE runs immediately after the app's own script, so the hook is in place
   // before restoreLastArticle's async work can report anything.
+  // Sampled synchronously, before `load`: the app's boot renderText() has already run by
+  // the time this classic script executes, so this IS the first thing the reader sees.
+  var FIRST_PAINT = ((document.getElementById('textColumn') || {}).textContent || '').trim().slice(0, 80);
   var WARNS = [];
   ['warn', 'error'].forEach(function(k){
     var orig = console[k];
@@ -78,6 +81,7 @@
     return { worst: worst, orphans: orphans, checked: checked };
   }
 
+  function textColEl(){ return document.getElementById('textColumn'); }
   function scroller(){
     var c = document.getElementById('textColumn') || document.querySelector('.text-column');
     if(c && c.scrollHeight > c.clientHeight + 4) return c;
@@ -227,6 +231,22 @@
     for(var i = 0; i < 80; i++){ if(pageDivs() >= NPAGES){ opened = true; break; } await sleep(250); }
     await sleep(600);
     ok('R1c REPORT ONLY — what the console said during boot', true, WARNS.slice(0, 4).join(' || ') || '(nothing)');
+    // ⚠ WHAT THE READER SEES WHILE IT COMES BACK. The restore is not awaited, so there is
+    // a real gap — and for one build the app filled it with "No article open yet", which
+    // reads as "it forgot" right before the article lands.
+    var blankSeen = false, reopenSeen = false;
+    for(var b1 = 0; b1 < 24; b1++){
+      var t = (textColEl() || {}).textContent || '';
+      if(/No article open yet/.test(t)) blankSeen = true;
+      if(/Reopening/.test(t)) reopenSeen = true;
+      if(document.querySelector('.pdf-page')) break;
+      await sleep(60);
+    }
+    ok('R1d it never claims there is no article while one is coming back', !blankSeen,
+       blankSeen ? 'showed "No article open yet" mid-restore' : 'never showed the empty state');
+    ok('R1e the FIRST thing painted says it is reopening, not that nothing is open',
+       /Reopening/.test(FIRST_PAINT) && !/No article open yet/.test(FIRST_PAINT),
+       'first paint: ' + JSON.stringify(FIRST_PAINT));
     ok('R2 the app reopens it on its own after a reload', opened, pageDivs() + ' divs, no switchToReading called');
     ok('R3 with its notes back beside it', noteMarks() === NNOTES, noteMarks() + ' marks');
     var d = cardDrift();

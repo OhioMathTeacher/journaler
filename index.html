@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-30 · build 48">
+<meta name="app-version" content="2026-08-30 · build 49">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -4346,6 +4346,22 @@ function renderText() {
   // ── No article open yet (bring-your-own-PDF empty state) ──
   const reading = READINGS[currentReadingSlug];
   if (!reading) {
+    // ⚠ DO NOT SAY "NO ARTICLE" WHILE ONE IS ON ITS WAY (Todd, 2026-08-30: "I closed and
+    // reopened and am greeted with 'No article open yet'. Then, strangely, the other
+    // reading is already there."). restoreLastArticle is deliberately NOT awaited, so the
+    // app is usable while the PDF is fetched and parsed — but that left the empty state on
+    // screen in the meantime, which reads as "it forgot", and the article arriving a second
+    // later reads as a glitch rather than the point. Same bytes, same wait; the screen just
+    // has to be honest about what it is doing.
+    let _pending = null;
+    try { _pending = localStorage.getItem(LAST_ARTICLE_KEY); } catch (e) {}
+    if (_pending && !customText) {
+      const _t = _pending.slice('custom:'.length).split('|')[0] || 'your last article';
+      textCol.innerHTML = '<div class="pdf-loading">Reopening ' + escHtml(_t) + '…</div>';
+      const sub0 = document.getElementById('headerSubtitle');
+      if (sub0) sub0.textContent = 'Read closely · think in the margins · keep your journal';
+      return;
+    }
     textCol.innerHTML = '<div class="cr-blank"><p>No article open yet.</p><button class="cr-blank-btn" onclick="openLoadModal()">Open article…</button><p class="cr-blank-hint">Download the reading from the JSTOR link on your Reading Homework sheet, then open the PDF here to read and annotate.</p><p class="cr-blank-hint" style="margin-top:.5rem">Been here before on another computer? <a href="#" onclick="event.preventDefault();openJournalFile()" style="color:#3a5a40;font-weight:600;text-decoration:underline">Restore your journal backup</a> — the <code>.json</code> file you saved with ⤓, not the article.</p></div>';
     const sub = document.getElementById('headerSubtitle'); if (sub) sub.textContent = 'Read closely · think in the margins · keep your journal';
     return;
