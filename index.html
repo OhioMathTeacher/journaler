@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-07 · build 50">
+<meta name="app-version" content="2026-09-07 · build 51">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -2556,6 +2556,7 @@ async function openPdfAsReader(file) {
     };
     pendingImport = null;
     rememberLastArticle(currentReadingId());
+    rememberReadingFile(currentReadingId(), file.name);
     await detectAndSetPromptWeek(pdfDoc, customText);  // pick this week's prompt from the PDF
     // Chain the button refresh onto the actual write. renderText() below also
     // refreshes it, but savePdfBytes is not awaited and uses its own IndexedDB
@@ -4438,17 +4439,42 @@ function switchLang(lang) {
 // just hands them back. One article at a time and never more than one in memory, which
 // is the whole reason this exists rather than a zip-everything button: packing a
 // semester of PDFs at once is how an iPad tab dies.
-function articleFileName() {
-  // customText.fileName is set when a PDF is opened FROM A FILE, but the restore path
-  // (switchToReading) leaves it '' -- and that is the common case, since reopening the
-  // app restores the last article. Fall back to the title or the download is nameless.
-  var raw = (customText && customText.fileName) || '';
-  if (!raw) raw = ((customText && customText.title) || 'article') + '.pdf';
-  raw = raw.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')   // illegal on Windows and in Finder
-           .replace(/\s+/g, ' ').trim().replace(/^\.+/, '');
-  if (!raw) raw = 'article.pdf';
+// Remember the name of the file that was actually opened. customText.fileName only
+// lives in memory: switchToReading rebuilds customText from the reading id, which
+// carries title and author and nothing else, so after any reload the real filename
+// was gone for good. Todd, 2026-09-07: downloaded a Switzer article and got
+// "Hundred chart challenge.pdf" -- the PDF's own embedded Title, set by whoever
+// produced the file, with the author nowhere in it.
+function rememberReadingFile(id, name) {
+  if (!id || !name) return;
+  var m = {}; try { m = JSON.parse(localStorage.getItem('cr_reading_files')) || {}; } catch (e) {}
+  if (m[id] !== name) { m[id] = name; try { localStorage.setItem('cr_reading_files', JSON.stringify(m)); } catch (e) {} }
+}
+function readingFileFor(id) {
+  var m = {}; try { m = JSON.parse(localStorage.getItem('cr_reading_files')) || {}; } catch (e) {}
+  return (id && m[id]) || '';
+}
+function sanitizeFileName(raw) {
+  raw = String(raw || '')
+    .replace(/[\\/:*?"<>|]/g, '-')        // illegal on Windows and in Finder
+    .replace(/[\x00-\x1f]/g, '')          // control characters
+    .replace(/\s+/g, ' ').trim().replace(/^\.+/, '');
+  if (!raw) raw = 'article';
   if (!/\.pdf$/i.test(raw)) raw += '.pdf';
   return raw.slice(-120);
+}
+function articleFileName() {
+  if (!customText) return 'article.pdf';
+  // 1. the file open in this session, 2. the name it was opened under before a
+  // reload. Either is the canonical thing: the file that actually went in.
+  var real = customText.fileName || readingFileFor(currentReadingId());
+  if (real) return sanitizeFileName(real);
+  // Nothing stored -- an article cached before filenames were kept. Rebuild from
+  // what the id does carry, author first, so it is at least identifiable on a shelf.
+  var t = String(customText.title || 'article').trim();
+  var a = String(customText.author || '').trim();
+  var useAuthor = a && t.toLowerCase().indexOf(a.toLowerCase()) < 0;
+  return sanitizeFileName(useAuthor ? a + ' - ' + t : t);
 }
 async function downloadCurrentArticle(btn) {
   if (!customText) return;
@@ -4524,6 +4550,10 @@ async function removeReading(encId) {
   try { titles = JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch {}
   delete titles[id];
   try { localStorage.setItem('cr_reading_titles', JSON.stringify(titles)); } catch {}
+  let files = {};
+  try { files = JSON.parse(localStorage.getItem('cr_reading_files')) || {}; } catch {}
+  delete files[id];
+  try { localStorage.setItem('cr_reading_files', JSON.stringify(files)); } catch {}
   // Per-reading view state is derived, not written by the reader: safe to drop.
   ['cr_prompt_', 'cr_promptweek_', 'cr_promptweek_manual_'].forEach(pre => {
     try { localStorage.removeItem(pre + id); } catch {}
