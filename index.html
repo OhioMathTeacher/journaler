@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-07 · build 51">
+<meta name="app-version" content="2026-09-07 · build 52">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -4454,14 +4454,35 @@ function readingFileFor(id) {
   var m = {}; try { m = JSON.parse(localStorage.getItem('cr_reading_files')) || {}; } catch (e) {}
   return (id && m[id]) || '';
 }
+// Trim to a length, but on a word boundary and from the FRONT. The first cut of
+// this used slice(-120), which keeps the LAST 120 characters -- so a long name lost
+// its author and the opening of its title and kept the tail, which is exactly
+// backwards for telling two articles apart on a shelf.
+function clipWords(str, max) {
+  str = String(str || '').trim();
+  if (str.length <= max) return str;
+  var cut = str.slice(0, max);
+  var sp = cut.lastIndexOf(' ');
+  return (sp > max * 0.5 ? cut.slice(0, sp) : cut).trim();
+}
+// "P. Janelle McFeetors and Kylie Palfy" -> "P. Janelle McFeetors et al".
+// PDF Author metadata carries the full byline, which is a citation, not a filename.
+function shortAuthor(a) {
+  a = String(a || '').trim();
+  if (!a) return '';
+  var first = a.split(/\s*(?:,|;|&|\band\b)\s*/i)[0].trim();
+  return (first && first.length < a.length) ? first + ' et al' : a;
+}
 function sanitizeFileName(raw) {
   raw = String(raw || '')
     .replace(/[\\/:*?"<>|]/g, '-')        // illegal on Windows and in Finder
     .replace(/[\x00-\x1f]/g, '')          // control characters
-    .replace(/\s+/g, ' ').trim().replace(/^\.+/, '');
+    .replace(/-{2,}/g, '-')               // runs left behind by the two lines above
+    .replace(/\s+/g, ' ').trim().replace(/^[.\-\s]+/, '');
+  raw = raw.replace(/\.pdf$/i, '');
+  raw = clipWords(raw, 100);
   if (!raw) raw = 'article';
-  if (!/\.pdf$/i.test(raw)) raw += '.pdf';
-  return raw.slice(-120);
+  return raw + '.pdf';
 }
 function articleFileName() {
   if (!customText) return 'article.pdf';
@@ -4470,10 +4491,22 @@ function articleFileName() {
   var real = customText.fileName || readingFileFor(currentReadingId());
   if (real) return sanitizeFileName(real);
   // Nothing stored -- an article cached before filenames were kept. Rebuild from
-  // what the id does carry, author first, so it is at least identifiable on a shelf.
-  var t = String(customText.title || 'article').trim();
-  var a = String(customText.author || '').trim();
-  var useAuthor = a && t.toLowerCase().indexOf(a.toLowerCase()) < 0;
+  // what the id does carry. Todd, 2026-09-07, on the first version of this:
+  // "it actually saves with a very long filename. P. Janelle McFeetors and Kylie
+  // Palfy - We're in . . ." -- the byline and the full title, both uncut. Condense
+  // the authors and clip the title; this only has to identify the file, and one
+  // re-open replaces it with the real name anyway.
+  var t = clipWords(String(customText.title || 'article').trim(), 60);
+  // Test "is the author already in the title?" against the FIRST author's surname,
+  // taken before "et al" is appended. Checking the condensed string instead meant
+  // testing for "al", which matches inside "Mathematical" -- and the byline of a
+  // paper titled "...Mathematical Reasoning..." silently vanished.
+  var raw = String(customText.author || '').trim();
+  var firstAuthor = raw.split(/\s*(?:,|;|&|\band\b)\s*/i)[0].trim();
+  var surname = firstAuthor.split(/\s+/).pop() || '';
+  var a = shortAuthor(raw);
+  var useAuthor = a && surname.length > 1 &&
+                  t.toLowerCase().indexOf(surname.toLowerCase()) < 0;
   return sanitizeFileName(useAuthor ? a + ' - ' + t : t);
 }
 async function downloadCurrentArticle(btn) {
