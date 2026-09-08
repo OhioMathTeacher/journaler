@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-08-30 · build 49">
+<meta name="app-version" content="2026-09-07 · build 50">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -1352,6 +1352,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <div style="display:flex;gap:0.5rem;align-items:center">
         <button class="load-btn" id="zoomOutBtn" onclick="zoomPdf(-1)" title="Smaller — fit more of the page on screen">A−</button>
         <button class="load-btn" id="zoomInBtn" onclick="zoomPdf(1)" title="Larger — easier on the eyes for close reading">A+</button>
+        <button class="load-btn icon-btn" id="downloadArticleBtn" onclick="downloadCurrentArticle(this)" style="display:none" title="Download this article as a PDF — the file itself, to keep on a thumb drive or open in another app. Your notes and journal are saved separately." aria-label="Download this article">⤓</button>
         <button class="nb-btn icon-btn" id="nbBtn" onclick="openNotebook()" title="Write this week's entry for this reading — the prompt, your marked passages, your response, and your conversation with Todd-in-a-Can. Five of these entries make the Journal you submit after Week 5." aria-label="This week's entry">✎ <span class="btn-word">This Week's Entry</span></button>
 
         <button class="nb-btn icon-btn" id="calBtn" onclick="openCalendar()" title="Calendar — every day you wrote, across the semester. The journal is dated on purpose: entries are written week by week while the reading is fresh, not all at the end of Act I." aria-label="Calendar">📅</button>
@@ -2556,7 +2557,11 @@ async function openPdfAsReader(file) {
     pendingImport = null;
     rememberLastArticle(currentReadingId());
     await detectAndSetPromptWeek(pdfDoc, customText);  // pick this week's prompt from the PDF
-    savePdfBytes(currentReadingId(), cacheBytes);
+    // Chain the button refresh onto the actual write. renderText() below also
+    // refreshes it, but savePdfBytes is not awaited and uses its own IndexedDB
+    // connection, so that earlier pass can ask "are the bytes there?" before the
+    // put has committed and leave the download button hidden on a fresh open.
+    savePdfBytes(currentReadingId(), cacheBytes).then(updateDownloadArticleBtn);
     closeLoadModal();
     const btn = document.getElementById('loadBtn');
     if (btn) { btn.classList.add('has-custom'); btn.textContent = '\u2713 ' + truncate(customText.title, 22); }
@@ -4427,11 +4432,66 @@ function switchLang(lang) {
 // ═══════════════════════════════════
 // The title doubles as the reading picker: a button showing the current title,
 // and a popdown menu listing the library. Sizes to the title; wraps if long.
+// ── Download the open article's own PDF ─────────────────────────────
+// Todd, 2026-09-07: "when an article is loaded, the user can click a download button."
+// The bytes have been sitting in IndexedDB since the first open (savePdfBytes) -- this
+// just hands them back. One article at a time and never more than one in memory, which
+// is the whole reason this exists rather than a zip-everything button: packing a
+// semester of PDFs at once is how an iPad tab dies.
+function articleFileName() {
+  // customText.fileName is set when a PDF is opened FROM A FILE, but the restore path
+  // (switchToReading) leaves it '' -- and that is the common case, since reopening the
+  // app restores the last article. Fall back to the title or the download is nameless.
+  var raw = (customText && customText.fileName) || '';
+  if (!raw) raw = ((customText && customText.title) || 'article') + '.pdf';
+  raw = raw.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')   // illegal on Windows and in Finder
+           .replace(/\s+/g, ' ').trim().replace(/^\.+/, '');
+  if (!raw) raw = 'article.pdf';
+  if (!/\.pdf$/i.test(raw)) raw += '.pdf';
+  return raw.slice(-120);
+}
+async function downloadCurrentArticle(btn) {
+  if (!customText) return;
+  var was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '\u22ef'; }
+  try {
+    var bytes = await loadPdfBytes(currentReadingId());
+    if (!bytes) {
+      // Highlights can outlive the bytes (see the "doesn't have this PDF saved yet"
+      // state). Say so plainly instead of handing over an empty file.
+      toast('This browser doesn\u2019t have the PDF saved — re-open the file once.');
+      return;
+    }
+    var name = articleFileName();
+    var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    try { appLog.info('article', 'downloaded \u201c' + name + '\u201d'); } catch (e) {}
+    toast('Saved ' + name);
+  } catch (e) {
+    try { appLog.error('article', 'download failed', String((e && e.message) || e)); } catch (e2) {}
+    toast('Could not save the PDF: ' + ((e && e.message) || e));
+  } finally { if (btn) { btn.disabled = false; btn.textContent = was; } }
+}
+// Only offer the button when there is actually something to hand over. hasPdfBytes
+// counts the record instead of reading it -- an article can be many megabytes and this
+// runs on every article switch.
+async function updateDownloadArticleBtn() {
+  var b = document.getElementById('downloadArticleBtn');
+  if (!b) return;
+  if (!customText) { b.style.display = 'none'; return; }
+  var ok = false;
+  try { ok = await hasPdfBytes(currentReadingId()); } catch (e) { ok = false; }
+  b.style.display = ok ? '' : 'none';
+}
 function renderReadingPicker() {
   const label = document.getElementById('readingTitleText');
   const menu = document.getElementById('readingMenu');
   if (!label || !menu) return;
   label.textContent = customText ? '📄 ' + (customText.title || 'Loaded article') : 'Journaler · TCE 318P';
+  updateDownloadArticleBtn();
   let titles = {};
   try { titles = JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch {}
   const curId = currentReadingId();
