@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-07 · build 52">
+<meta name="app-version" content="2026-09-08 · build 53">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -1595,8 +1595,44 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .welcome-steps{margin:0 0 1.2rem;padding-left:1.2rem}
   .welcome-steps li{margin:0 0 .6rem;font-size:.92rem;line-height:1.5}
   .welcome-note{font-size:.82rem;color:#7a7a6a;background:#f3f3ea;border-radius:8px;padding:.7rem .9rem;margin:0 0 1.3rem}
+  .welcome-warn{font-size:.82rem;color:#6b4423;background:#fdf3e3;border:1px solid #e6d2b0;border-radius:8px;padding:.7rem .9rem;margin:0 0 1.3rem}
+  /* The backup reminder. Bottom-left so it never covers the top bar's own save
+     button -- the reminder that hides the control it is asking you to use is worse
+     than none. bottom offset clears Safari's iPad toolbar. */
+  #backupNag{position:fixed;left:14px;bottom:64px;z-index:1900;max-width:23rem;display:none;
+    background:#3a5a40;color:#fff;font-family:'DM Sans',system-ui,sans-serif;
+    border-radius:10px;padding:.85rem 1rem;box-shadow:0 6px 22px rgba(0,0,0,.34)}
+  #backupNag.open{display:block}
+  #backupNag .nag-text{font-size:.86rem;line-height:1.45;margin-bottom:.7rem}
+  #backupNag .nag-acts{display:flex;gap:.5rem;flex-wrap:wrap}
+  #backupNag .nag-go{font-family:inherit;font-size:.85rem;font-weight:600;background:#fff;color:#3a5a40;
+    border:0;border-radius:7px;padding:.45rem .9rem;cursor:pointer}
+  #backupNag .nag-x{font-family:inherit;font-size:.85rem;background:transparent;color:#cfe0d2;
+    border:1px solid #6d8a72;border-radius:7px;padding:.45rem .8rem;cursor:pointer}
+  .imp-tbl{width:100%;border-collapse:collapse;font-size:.85rem;margin:.8rem 0 1rem}
+  .imp-tbl th,.imp-tbl td{padding:.4rem .55rem;border-bottom:1px solid var(--comment-border,#e0dccf);text-align:right}
+  .imp-tbl th:first-child,.imp-tbl td:first-child{text-align:left}
+  .imp-tbl thead th{font-weight:600;color:#6a6a5a}
+  .imp-tbl .imp-gain{color:#3a5a40;font-weight:600}
+  .imp-note{font-size:.82rem;color:#7a7a6a;line-height:1.5;margin:.2rem 0 .9rem}
+  .imp-lead{font-size:.98rem;color:#2a2a24;line-height:1.5;margin:.3rem 0 .5rem}
+  .imp-busy{display:flex;align-items:center;font-size:.86rem;color:#6a6a5a;margin:1.1rem 0 .2rem}
+  .imp-spin{display:inline-block;width:14px;height:14px;margin-right:.55rem;border-radius:50%;
+    border:2px solid #d8d8cc;border-top-color:#3a5a40;animation:impspin .7s linear infinite}
+  @keyframes impspin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ .imp-spin{animation-duration:2.4s} }
   .welcome-go{font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;background:#3a5a40;color:#fff;border:0;border-radius:8px;padding:.6rem 1.4rem;cursor:pointer}
-  .welcome-actions{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+  .welcome-actions{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;
+    position:sticky;bottom:0;background:#fdfdf8;padding-top:.9rem;box-shadow:0 -14px 16px -10px #fdfdf8}
+  /* A short window -- an iPad in landscape, a laptop with a small screen -- is where
+     this card overflowed. Tighten it there rather than making every reader scroll. */
+  @media (max-height:860px){
+    .welcome-card{padding:1.4rem 1.6rem}
+    .welcome-card h2{font-size:1.2rem}
+    .welcome-lead{margin-bottom:.8rem}
+    .welcome-steps li{margin:0 0 .42rem;font-size:.88rem;line-height:1.42}
+    .welcome-warn{font-size:.79rem;margin-bottom:.6rem}
+  }
   .welcome-secondary{font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;background:transparent;color:#3a5a40;border:1px solid #3a5a40;border-radius:8px;padding:.55rem 1.1rem;cursor:pointer}
   .welcome-secondary:hover{background:#eef2ee}
   .welcome-card .nb-close-x{position:absolute;top:.9rem;right:1rem}
@@ -1722,7 +1758,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <li><strong>Write your entry.</strong> Open <em>This Week's Entry</em> and answer that week's prompt from the Reading Homework sheet. Five entries make the Journal you submit after Week 5.</li>
       <li><strong>Turn it in.</strong> At the end of Act I, open the Notebook and choose <em>Print / PDF</em> to submit your whole journal as one file.</li>
     </ol>
-    <p class="welcome-note"><strong>On a shared or public computer?</strong> This browser may forget your work when you log out. Keep your work in a file — thumb drive, cloud, or email: save it with the <strong>⤓</strong> button (top bar) as you go, and open it here each time. On your own device, your work is remembered automatically. Nothing is ever uploaded.</p>
+    <p class="welcome-warn"><strong>⚠ Keep your work in a file.</strong> This browser can forget what you write. Safari clears a site&rsquo;s saved work after <strong>seven days without a visit</strong>, and a shared computer may clear it when you log out. Save with <strong>⤓</strong> as you go, and open your file here each time. Nothing is ever uploaded.<br>
+      <strong>On an iPad</strong>, <em>Share → Add to Home Screen</em> lifts the seven-day limit — but back up <strong>first</strong> and install <strong>second</strong>: the installed app keeps its own separate storage and starts empty.</p>
     <div class="welcome-actions">
       <button class="welcome-go" onclick="closeWelcome()">Start reading</button>
       <button class="welcome-secondary" onclick="closeWelcome();openJournalFile()">⤒ Restore my journal backup (.json)</button>
@@ -3765,14 +3802,7 @@ function exportNotes() {
     notes: comments
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  saveBlob(blob, filename);
 }
 
 function importNotes(event) {
@@ -4522,11 +4552,9 @@ async function downloadCurrentArticle(btn) {
       return;
     }
     var name = articleFileName();
-    var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    var a = document.createElement('a');
-    a.href = url; a.download = name; a.rel = 'noopener';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    // Was an anchor with a 10s revoke: safe from the race, but still lost its name
+    // on iOS. saveBlob keeps the name there and behaves identically on a desktop.
+    saveBlob(new Blob([bytes], { type: 'application/pdf' }), name);
     try { appLog.info('article', 'downloaded \u201c' + name + '\u201d'); } catch (e) {}
     toast('Saved ' + name);
   } catch (e) {
@@ -4649,7 +4677,7 @@ async function switchToReading(encId) {
 // cloud, or email — save it as you go, and open it next time.
 // ═══════════════════════════════════
 let workDirty = false;
-function markDirty() { if (!workDirty) { workDirty = true; updateSaveBtn(); } }
+function markDirty() { if (!workDirty) { workDirty = true; updateSaveBtn(); } scheduleBackupNag(); }
 function updateSaveBtn() {
   const b = document.getElementById('saveJournalBtn');
   if (!b) return;
@@ -4706,13 +4734,223 @@ function exportAll() {
   const blob = new Blob([JSON.stringify({
     journaler318: 1, appVersion: APP_VERSION, savedAt: new Date().toISOString(), data
   }, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'tce318p-journal-' + fileStamp() + '-' + buildTag() + '.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  workDirty = false; updateSaveBtn();
+  const name = 'tce318p-journal-' + fileStamp() + '-' + buildTag() + '.json';
+  // ⚠ The work is marked safe INSIDE the callback, and only on a true result. A
+  // cancelled share sheet or a failed write must leave the journal still dirty --
+  // telling a student their work is backed up when it is not is worse than silence.
+  saveBlob(blob, name).then(function (saved) {
+    if (!saved) return;
+    workDirty = false; updateSaveBtn();
+    recordBackup();
+  }).catch(function (err) {
+    // ⚠ Deliberately NOT silent, and deliberately still dirty. A save that threw is a
+    // save that did not happen, so the journal keeps its unsaved badge and no backup is
+    // recorded -- the reminder must go on nagging. Found by the probe suite: without
+    // this the rejection was unhandled and the reader was told nothing at all.
+    try { appLog.error('backup', 'save failed', String((err && err.message) || err)); } catch (e) {}
+    try { toast('Could not save your backup \u2014 your work is still here, still unsaved.'); } catch (e) {}
+  });
 }
+// ══════════════════════════════════════════════════════════════════════════
+// RESTORING A BACKUP — add, or replace.
+//
+// This used to be keys.forEach(k => localStorage.setItem(k, data[k])): keys absent
+// from the file survived, but WITHIN a key (all margin notes for a reading, the
+// journal array) the file won completely. In 284 that was not hypothetical -- two
+// real archives held 23 and 100 marked passages with ZERO overlap, and the app could
+// only ever produce one or the other. Two devices could never be combined.
+//
+// Margin notes are pushed with a stable id and timestamp, and journal entries carry
+// { id, ts, edited } too, so "already have this" is an identity test rather than a
+// similarity guess. Add is the default; replacing everything is the deliberate
+// second choice. Counts are shown because the words mean nothing without them.
+// ══════════════════════════════════════════════════════════════════════════
+function safeArr(v) {
+  try {
+    const p = (typeof v === 'string') ? JSON.parse(v) : v;
+    return Array.isArray(p) ? p : null;
+  } catch (e) { return null; }
+}
+
+// ⚠ Identity for a journal SLOT, not just an item. The app keeps ONE 'chat' entry
+// per reading and looks it up with find(x => x.readingId === rid && x.kind === 'chat').
+// Two devices that both wrote on the same reading hold DIFFERENT ids in the SAME slot,
+// so appending both would leave the second permanently invisible -- present in storage,
+// unreachable in the UI. Slot collisions resolve by edit time and are counted.
+function journalSlot(e) { return (e && e.kind === 'chat') ? ('chat|' + (e.readingId || '')) : null; }
+function entryTime(e) { return (e && (e.edited || e.ts)) || 0; }
+
+function mergeById(mine, theirs, slotOf) {
+  const out = mine.slice(), byId = new Set(), bySlot = new Map();
+  out.forEach(function (x, i) {
+    if (x && x.id) byId.add(x.id);
+    const s = slotOf && slotOf(x); if (s) bySlot.set(s, i);
+  });
+  let added = 0, already = 0, newer = 0;
+  theirs.forEach(function (t) {
+    if (!t) return;
+    if (t.id && byId.has(t.id)) { already++; return; }
+    const s = slotOf && slotOf(t);
+    if (s && bySlot.has(s)) {
+      const i = bySlot.get(s);
+      if (entryTime(t) > entryTime(out[i])) { out[i] = t; newer++; } else { already++; }
+      return;
+    }
+    out.push(t);
+    if (t.id) byId.add(t.id);
+    if (s) bySlot.set(s, out.length - 1);
+    added++;
+  });
+  return { out: out, added: added, already: already, newer: newer };
+}
+
+function noteKeysIn(data) {
+  const set = {};
+  Object.keys(data || {}).forEach(function (k) { if (k.indexOf('cr_margin_notes_') === 0) set[k] = 1; });
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('cr_margin_notes_') === 0) set[k] = 1;
+    }
+  } catch (e) {}
+  return Object.keys(set);
+}
+
+function importSummary(data) {
+  let mineN = 0, fileN = 0, unionN = 0;
+  noteKeysIn(data).forEach(function (k) {
+    const mine = safeArr(localStorage.getItem(k)) || [], theirs = safeArr(data[k]) || [];
+    mineN += mine.length; fileN += theirs.length;
+    unionN += mergeById(mine, theirs, null).out.length;
+  });
+  const mineJ = safeArr(localStorage.getItem(JOURNAL_KEY)) || [];
+  const fileJ = safeArr(data[JOURNAL_KEY]) || [];
+  const mj = mergeById(mineJ, fileJ, journalSlot);
+  return { notes:   { mine: mineN, file: fileN, union: unionN },
+           entries: { mine: mineJ.length, file: fileJ.length, union: mj.out.length },
+           newer: mj.newer };
+}
+
+function applyImport(data, mode) {
+  const keys = Object.keys(data || {}).filter(function (k) { return k.indexOf('cr_') === 0; });
+  // What changed, so the reader gets told rather than guessing. Counted here because
+  // this is the only place that knows -- mergeById's result is discarded after the write.
+  const tally = { notesAdded: 0, notesKept: 0, entriesAdded: 0, entriesNewer: 0, replaced: 0 };
+  if (mode === 'replace') {
+    keys.forEach(function (k) { localStorage.setItem(k, data[k]); });
+    tally.replaced = keys.length;
+    return tally;
+  }
+  keys.forEach(function (k) {
+    if (k === 'cr_applog' || k === BACKUP_KEY || k === VISIT_KEY) return;  // never import someone else's log or clock
+    const theirs = safeArr(data[k]);
+    if (theirs === null) {
+      // Not a list -- a setting. Keep what is here; adopt only what is missing.
+      if (localStorage.getItem(k) === null) localStorage.setItem(k, data[k]);
+      return;
+    }
+    const mine = safeArr(localStorage.getItem(k)) || [];
+    const r = mergeById(mine, theirs, k === JOURNAL_KEY ? journalSlot : null);
+    localStorage.setItem(k, JSON.stringify(r.out));
+    if (k === JOURNAL_KEY) { tally.entriesAdded += r.added; tally.entriesNewer += r.newer; }
+    else if (k.indexOf('cr_margin_notes_') === 0) { tally.notesAdded += r.added; tally.notesKept += r.already; }
+  });
+  return tally;
+}
+
+let _pendingImport = null;
+// ⚠ The app warns on beforeunload whenever there is unsaved work. A reload WE start,
+// to show freshly imported data, would trip that warning -- on iOS behind the modal,
+// where it reads as a dialog that has hung rather than as a question. Nothing is at
+// risk in this particular reload: every imported item is already written to
+// localStorage, which is what the reload exists to re-read.
+window._intentionalReload = false;
+function showImportChoice(data) {
+  _pendingImport = data;
+  const s = importSummary(data);
+  const row = function (label, c) {
+    const gain = c.union - c.mine;
+    return '<tr><td>' + label + '</td><td>' + c.mine + '</td><td>' + c.file + '</td><td class="imp-gain">'
+         + c.union + (gain > 0 ? ' (+' + gain + ')' : '') + '</td></tr>';
+  };
+  let el = document.getElementById('importChoiceOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'importChoiceOverlay'; el.className = 'nb-modal-overlay';
+    document.body.appendChild(el);
+  }
+  el.innerHTML =
+      '<div class="nb-modal" style="max-width:34rem">'
+    + '<div class="nb-winctl"><button class="nb-close-x" onclick="cancelImport()" aria-label="Close">\u00d7</button></div>'
+    + '<h2>Restore a backup</h2>'
+    + '<div class="nb-sub">What is in this file, next to what is already here.</div>'
+    + '<table class="imp-tbl"><thead><tr><th></th><th>Here now</th><th>In the file</th><th>If you add</th></tr></thead>'
+    + '<tbody>' + row('Margin notes', s.notes) + row('Journal entries', s.entries) + '</tbody></table>'
+    + (s.newer ? '<p class="imp-note">\u26a0 ' + s.newer + ' entr' + (s.newer === 1 ? 'y in the file was' : 'ies in the file were')
+                 + ' edited more recently than the copy here, and will be used instead.</p>' : '')
+    + '<p class="imp-note"><strong>Add</strong> keeps everything here and brings in whatever the file has that this '
+    + 'browser does not \u2014 this is how you combine two devices. <strong>Replace everything</strong> throws away '
+    + 'what is in this browser and uses the file alone.</p>'
+    + '<div class="nb-foot">'
+    + '<button class="nb-mini" style="background:#7A3B10;color:#fff;border-color:#7A3B10" onclick="runImport(\'replace\')">Replace everything</button>'
+    + '<button class="cr-blank-btn" style="margin:0" onclick="runImport(\'add\')">Add to what is here</button>'
+    + '<button class="nb-cancel" onclick="cancelImport()">Cancel</button>'
+    + '</div></div>';
+  el.classList.add('open');
+}
+function cancelImport() {
+  _pendingImport = null;
+  const el = document.getElementById('importChoiceOverlay'); if (el) el.classList.remove('open');
+}
+function runImport(mode) {
+  if (!_pendingImport) return;
+  const data = _pendingImport; _pendingImport = null;
+  const el = document.getElementById('importChoiceOverlay');
+  let tally;
+  try {
+    tally = applyImport(data, mode);
+  } catch (e) {
+    if (el) el.classList.remove('open');
+    alert('Could not import: ' + ((e && e.message) || e));
+    return;
+  }
+  showImportResult(mode, tally);
+}
+
+// The modal stays open and becomes the receipt. It reloads itself -- no button to
+// press, because there is no decision left to make -- and it SAYS it is reloading
+// while a spinner turns, so the wait reads as work rather than as a hang.
+function showImportResult(mode, t) {
+  const el = document.getElementById('importChoiceOverlay');
+  if (!el) { location.reload(); return; }
+  const say = function (n, one, many) { return n + ' ' + (n === 1 ? one : many); };
+  let lead, detail = '';
+  if (mode === 'replace') {
+    lead = 'Everything in this browser was replaced with the file.';
+  } else {
+    const got = [];
+    if (t.notesAdded)   got.push(say(t.notesAdded, 'margin note', 'margin notes'));
+    if (t.entriesAdded) got.push(say(t.entriesAdded, 'journal entry', 'journal entries'));
+    lead = got.length ? 'Added ' + got.join(' and ') + '.'
+                      : 'Nothing new to add \u2014 everything in that file was already here.';
+    const kept = [];
+    if (t.notesKept)    kept.push(say(t.notesKept, 'item', 'items') + ' already here were left alone');
+    if (t.entriesNewer) kept.push(say(t.entriesNewer, 'entry', 'entries') + ' updated to the newer version in the file');
+    if (kept.length) detail = kept.join(', ') + '.';
+  }
+  el.innerHTML =
+      '<div class="nb-modal" style="max-width:34rem">'
+    + '<h2>' + (mode === 'replace' ? 'Replaced' : 'Added') + '</h2>'
+    + '<p class="imp-lead">' + escHtml(lead) + '</p>'
+    + (detail ? '<p class="imp-note">' + escHtml(detail) + '</p>' : '')
+    + '<p class="imp-busy"><span class="imp-spin"></span>Reopening your journal\u2026</p>'
+    + '</div>';
+  el.classList.add('open');
+  // Long enough to read the first line, short enough not to feel like a wait.
+  window._intentionalReload = true;
+  setTimeout(function () { location.reload(); }, 1500);
+}
+
 function importAll(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -4729,10 +4967,7 @@ function importAll(event) {
       const data = parsed && parsed.data ? parsed.data : parsed;
       const keys = Object.keys(data || {}).filter(k => k.indexOf('cr_') === 0);
       if (!keys.length) throw new Error('No Journaler data found in that file.');
-      if (!confirm('Import ' + keys.length + ' saved items? This overwrites matching notes and journal entries.')) { event.target.value = ''; return; }
-      keys.forEach(k => localStorage.setItem(k, data[k]));
-      alert('Imported. Reloading…');
-      location.reload();
+      showImportChoice(data);
     } catch (e) {
       alert('Could not import: ' + e.message);
     } finally { event.target.value = ''; }
@@ -4915,6 +5150,33 @@ function renderSettings() {
          <h3>On a shared or public computer</h3>
          <p>This browser may forget your work when you log out. Save a backup as you go, and open it
             again each time. On your own device your work is remembered automatically.</p>
+       </div></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>\u26a0 Safari forgets after seven days</h3>
+         <p>Safari \u2014 on a Mac as much as an iPad \u2014 deletes a site\u2019s saved work after
+            <strong>seven days without a visit</strong>. Nothing is broken when this happens and nothing
+            warns you first: you open Journaler and it is empty. Reading week to week keeps the clock
+            reset; a spring break does not.</p>
+         <p><strong>Adding Journaler to your Home Screen exempts it from that rule.</strong>
+            On an iPad or iPhone: <em>Share \u2192 Add to Home Screen</em>.</p>
+         <p><strong>\u26a0 Do it in this order:</strong> save a backup first, install second, then restore
+            your backup <em>inside</em> the installed app. iOS gives an installed app its own separate
+            storage \u2014 work you wrote here in Safari does not follow it there, so installing first
+            opens an empty app and looks like everything is gone.</p>
+       </div></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Last backup</h3>
+         <p>${(function () {
+              const b = lastBackup();
+              if (!b) return 'You have never saved a backup file.';
+              const d = workSinceBackup();
+              const when = new Date(b.ts).toLocaleString();
+              if (!d.notes && !d.entries) return 'Saved ' + esc(when) + ' \u2014 nothing new since.';
+              const bits = [];
+              if (d.entries) bits.push(d.entries + (d.entries === 1 ? ' entry' : ' entries'));
+              if (d.notes)   bits.push(d.notes   + (d.notes   === 1 ? ' note'  : ' notes'));
+              return 'Saved ' + esc(when) + ' \u2014 <strong>' + bits.join(' and ') + ' since then are not in any file.</strong>';
+            })()}</p>
        </div></div>`;
   }
 }
@@ -5039,15 +5301,205 @@ function clearDiagLog() {
 }
 // One download path for the log, the report and the backup, so a browser that
 // can save one can save all three.
-function saveBlob(blob, name) {
+// iPadOS 13+ reports itself as MacIntel, so the user-agent alone is not enough --
+// the touch-point count is what separates an iPad from a Mac. Anything that reads
+// this must treat a false negative as "behave like a desktop", which is safe.
+const IS_IOS = (function () {
+  try {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  } catch (e) { return false; }
+})();
+
+// The desktop path, and the fallback everywhere else.
+//
+// ⚠ a.click() only STARTS the download -- the browser reads the blob AFTERWARDS.
+// Revoking on the next statement (which exportAll did) races that read, and on iOS
+// Safari the file can arrive EMPTY. The revoke is deferred instead; the cost of
+// holding one object URL for a minute is nothing next to a backup that saves blank.
+function anchorSave(blob, name) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
+  a.href = url; a.download = name; a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  return true;
 }
+
+// One download path for the log, the report and the backup, so a browser that
+// can save one can save all three.
+//
+// ⚠ iOS Safari IGNORES a.download for blob: URLs. The file saves under the blob's
+// UUID -- in journaler-284 one reached a thumb drive as
+// 39214aba-57f2-443f-a79e-9915651ba5b4.zip: undateable, unsortable, and
+// indistinguishable from the next one. Here it would hit the ONE file a student
+// restores a semester from. The share sheet is the only iOS path that keeps a
+// filename, so it gets a real File; the desktop keeps the anchor, because a share
+// sheet on a laptop is worse than a download.
+//
+// ⚠ navigator.share and canShare are SECURE-CONTEXT ONLY. Over plain http:// they
+// are undefined and this falls through to the anchor -- which means a dev server on
+// http tests the desktop branch while appearing to test the iPad one. Serve dev over
+// https (tailscale serve) or this code path never runs.
+//
+// Returns a Promise<boolean>: true if the file reached the reader, false if they
+// cancelled. Callers MUST NOT record a backup as taken on false.
+function saveBlob(blob, name) {
+  try {
+    if (IS_IOS && navigator.canShare && navigator.share) {
+      const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
+      if (navigator.canShare({ files: [file] })) {
+        // No await before this call: Safari only trusts share() inside the gesture
+        // that started it, and an await in front is an await between tap and handler.
+        return navigator.share({ files: [file] })
+          .then(function () {
+            try { appLog.info('backup', 'shared \u201c' + name + '\u201d'); } catch (e) {}
+            return true;
+          })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') return false;   // reader cancelled
+            try { appLog.warn('backup', 'share failed, using anchor', String(err && err.message || err)); } catch (e) {}
+            return anchorSave(blob, name);
+          });
+      }
+    }
+  } catch (e) {
+    try { appLog.warn('backup', 'share unavailable, using anchor', String(e && e.message || e)); } catch (e2) {}
+  }
+  return Promise.resolve(anchorSave(blob, name));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BACKUP STATE — what is saved, what is not, and when to say so.
+//
+// A 284 student lost every freewrite at the end of Week 2. Nothing was broken:
+// Safari erases script-writable storage after seven days without a visit, and he
+// had never found the backup button two levels down in Settings. 318P has the
+// same exposure. His own suggestion -- "it would be a good idea to add a nag
+// screen" -- is what this is.
+//
+// The rule that makes it worth having: nag on WORK MADE SINCE the last backup,
+// never on launch. A reminder that fires every time is wallpaper within a week,
+// and is then dismissed reflexively on the day it mattered.
+// ══════════════════════════════════════════════════════════════════════════
+const BACKUP_KEY = 'cr_last_backup';
+const VISIT_KEY  = 'cr_last_visit';
+
+// ⚠ THESE TWO NUMBERS ARE 284's, CARRIED OVER PENDING TODD'S CALL.
+// 284 nags at 8 marked passages OR one notebook entry -- the entry is the graded
+// artifact and outweighs a highlight. 318P's equivalents are margin notes and
+// journal entries, and that ratio wants a decision rather than a copy.
+const NAG_NOTES   = 8;
+const NAG_ENTRIES = 1;
+
+function workCounts() {
+  let notes = 0, entries = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('cr_margin_notes_') === 0) {
+        try { notes += (JSON.parse(localStorage.getItem(k)) || []).length; } catch (e) {}
+      }
+    }
+  } catch (e) {}
+  try { entries = loadJournal().length; } catch (e) {}
+  return { notes: notes, entries: entries };
+}
+
+function lastBackup() {
+  try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || 'null'); } catch (e) { return null; }
+}
+
+// Called ONLY after a save actually reached the reader. Marking work safe when the
+// save failed is the one bug that makes this whole system worse than not having it.
+function recordBackup() {
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({ ts: Date.now(), counts: workCounts() }));
+  } catch (e) {}
+  hideBackupNag();
+}
+
+// How much work exists that no backup has ever seen.
+function workSinceBackup() {
+  const now = workCounts(), last = lastBackup();
+  if (!last || !last.counts) return now;
+  return { notes:   Math.max(0, now.notes   - (last.counts.notes   || 0)),
+           entries: Math.max(0, now.entries - (last.counts.entries || 0)) };
+}
+
+let _nagTimer = null, _nagDismissed = false;
+function scheduleBackupNag() {
+  if (_nagTimer) clearTimeout(_nagTimer);
+  _nagTimer = setTimeout(checkBackupNag, 4000);   // settle first; nobody wants this mid-sentence
+}
+function checkBackupNag() {
+  if (_nagDismissed) return;
+  const d = workSinceBackup();
+  if (d.entries >= NAG_ENTRIES || d.notes >= NAG_NOTES) showBackupNag(d);
+}
+
+function showBackupNag(d) {
+  let el = document.getElementById('backupNag');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'backupNag';
+    document.body.appendChild(el);
+  }
+  const bits = [];
+  if (d.entries) bits.push(d.entries + (d.entries === 1 ? ' journal entry' : ' journal entries'));
+  if (d.notes)   bits.push(d.notes   + (d.notes   === 1 ? ' margin note'   : ' margin notes'));
+  const what = bits.join(' and ');
+  // ⚠ The button lives IN the reminder. Pointing at a menu path is exactly what let a
+  // 284 student go two weeks without ever finding the export.
+  el.innerHTML =
+      '<div class="nag-text"><strong>' + escHtml(what) + '</strong> here have never been saved to a file.'
+    + ' If this browser clears its storage, they are gone.</div>'
+    + '<div class="nag-acts">'
+    + '<button class="nag-go" onclick="exportAll()">\u2913 Save my work now</button>'
+    + '<button class="nag-x" onclick="dismissBackupNag()">Not now</button>'
+    + '</div>';
+  el.classList.add('open');
+}
+function hideBackupNag() {
+  const el = document.getElementById('backupNag');
+  if (el) el.classList.remove('open');
+}
+function dismissBackupNag() { _nagDismissed = true; hideBackupNag(); }
+
+// The ONE launch-time exception, and it earns the slot because there is no other
+// moment to catch it: a Safari reader coming back after days away, with work that
+// has never been saved, gets the Home Screen advice BEFORE the seven days elapse.
+//
+// ⚠ The ORDER in this message is load-bearing. iOS gives a home-screen app its OWN
+// storage; work written in Safari does NOT follow it there. A student who installs
+// first opens an empty app and reasonably concludes everything is gone.
+function backupLaunchCheck() {
+  let prev = 0;
+  try { prev = +(localStorage.getItem(VISIT_KEY) || 0); } catch (e) {}
+  try { localStorage.setItem(VISIT_KEY, String(Date.now())); } catch (e) {}
+  const standalone = (window.navigator.standalone === true)
+                  || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (standalone) return;                       // installed: exempt from the 7-day wipe
+  if (!prev) return;                            // first ever visit: nothing at risk yet
+  const days = (Date.now() - prev) / 86400000;
+  if (days < 4) return;
+  const d = workSinceBackup();
+  if (!d.notes && !d.entries) return;
+  alert('Welcome back \u2014 it has been ' + Math.floor(days) + ' days.\n\n'
+      + 'Safari deletes a site\u2019s saved work after seven days without a visit, so your '
+      + 'notes and entries here are at risk.\n\n'
+      + 'Two things make that permanent:\n\n'
+      + '1. Save a backup file now (\u2913 in the top bar).\n'
+      + '2. THEN use Share \u2192 Add to Home Screen. An installed app is exempt from the '
+      + 'seven-day rule.\n\n'
+      + '\u26a0 Do it in that order. The installed app gets its own separate storage, so work '
+      + 'written here in Safari will NOT appear in it \u2014 you restore your backup inside the '
+      + 'installed app afterwards.');
+}
+if (document.readyState !== 'loading') setTimeout(backupLaunchCheck, 1200);
+else window.addEventListener('DOMContentLoaded', function () { setTimeout(backupLaunchCheck, 1200); });
 
 // ── the report ────────────────────────────────────────────────────────────
 // Kept synchronous on purpose: mailReport() navigates to a mailto: and an await
@@ -6549,12 +7001,8 @@ function exportToddChat() {
   if (!msgs.length) { alert('This conversation is empty.'); return; }
   const body = msgs.map(m => (m.role === 'todd' ? 'Todd-in-a-Can' : 'You') + ': ' + (m.text || '')).join('\n\n');
   const blob = new Blob([`Conversation with Todd-in-a-Can — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'tce318p-conversation-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
-             + '-' + fileStamp() + '-' + buildTag() + '.txt';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  saveBlob(blob, 'tce318p-conversation-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+                 + '-' + fileStamp() + '-' + buildTag() + '.txt');
 }
 async function sendToddFromPopup(preset) {
   if (!aiConfigured()) { renderToddChat(NO_MODEL_NOTICE, true); return; }
@@ -7083,12 +7531,8 @@ function exportNotebook() {
   // says This Week's Entry and Journal. It survived here because the export was never
   // renamed when the vocabulary was, and it is a file the STUDENT ends up holding.
   const blob = new Blob([`Journal entries — ${currentReadingTitle()}\n\n${body}\n`], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'tce318p-entries-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
-             + '-' + fileStamp() + '-' + buildTag() + '.txt';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  saveBlob(blob, 'tce318p-entries-' + currentReadingId().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+                 + '-' + fileStamp() + '-' + buildTag() + '.txt');
 }
 
 // Whole-journal, human-readable export — the submission artifact (one PDF).
@@ -7221,7 +7665,7 @@ restoreLastArticle();
 // Take-it-with-you nudge: if there are unsaved changes, warn before leaving so
 // work isn't lost on a shared computer that wipes site data on logout.
 window.addEventListener('beforeunload', function (e) {
-  if (workDirty) { e.preventDefault(); e.returnValue = ''; }
+  if (workDirty && !window._intentionalReload) { e.preventDefault(); e.returnValue = ''; }
 });
 
 if (!localStorage.getItem('cr318_seen_welcome')) openWelcome();
