@@ -131,36 +131,50 @@
     ok('B7b nothing is outstanding immediately after a backup',
        workSinceBackup().notes === 0 && workSinceBackup().entries === 0, JSON.stringify(workSinceBackup()));
 
-    // ── 7. the reminder fires on work made SINCE, and carries its own button ──
+    // ── 7. the bar: quiet below the line, and never over someone's writing ──
+    try { sessionStorage.removeItem('cr318_nag_snoozed'); } catch(e){}
     hideBackupNag();
-    localStorage.setItem(NK, JSON.stringify(notes('mine', 12 + NAG_NOTES)));
+
+    // Below the threshold it says nothing. Asking every day would tell a student the
+    // software expects to lose their work, which is worse than not asking at all.
+    localStorage.setItem(NK, JSON.stringify(notes('mine', 12 + NAG_AT - 1)));
     ok('B8 outstanding work is measured against the last backup, not the total',
-       workSinceBackup().notes === NAG_NOTES, JSON.stringify(workSinceBackup()));
+       workSinceBackup().notes === NAG_AT - 1, JSON.stringify(workSinceBackup()));
     checkBackupNag();
     var nag = document.getElementById('backupNag');
-    ok('B9 the reminder appears once the threshold is crossed',
-       !!nag && nag.classList.contains('open'), nag ? nag.className : 'no element');
-    ok('B9a and it carries the save button itself, not a menu path',
-       !!nag && /exportAll\(\)/.test(nag.innerHTML), nag ? (nag.querySelector('.nag-go')||{}).textContent : '');
+    ok('B9 it stays quiet below the threshold',
+       !nag || !nag.classList.contains('open'), 'since=' + JSON.stringify(workSinceBackup()));
 
-    // below threshold, and after a backup, it stays quiet
-    hideBackupNag(); _nagDismissed = false;
-    localStorage.setItem(NK, JSON.stringify(notes('mine', 12 + NAG_NOTES - 1)));
-    var jj = JSON.parse(localStorage.getItem(JK) || '[]');
-    localStorage.setItem(JK, JSON.stringify(jj.slice(0, (JSON.parse(localStorage.getItem('cr_last_backup')).counts.entries))));
+    // At the threshold, but a modal is open: STILL silent. Never interrupt writing.
+    localStorage.setItem(NK, JSON.stringify(notes('mine', 12 + NAG_AT)));
+    var ov = document.querySelector('.nb-modal-overlay');
+    if (ov) ov.classList.add('open');
     checkBackupNag();
     nag = document.getElementById('backupNag');
-    ok('B10 it stays quiet below the threshold (a reminder that always fires is wallpaper)',
-       !nag || !nag.classList.contains('open'),
-       'since=' + JSON.stringify(workSinceBackup()));
+    ok('B10 it never appears while a modal is open (never interrupt writing)',
+       !nag || !nag.classList.contains('open'), 'at threshold, modal open');
+    if (ov) ov.classList.remove('open');
+
+    // Boundary reached -- the reader has stopped. Now it speaks.
+    checkBackupNag();
+    nag = document.getElementById('backupNag');
+    ok('B11 it appears once the threshold is crossed and writing has stopped',
+       !!nag && nag.classList.contains('open'), nag ? nag.className : 'no element');
+    ok('B11a it carries the save button itself, not a menu path',
+       !!nag && /exportAll\(\)/.test(nag.innerHTML), nag ? (nag.querySelector('.nag-go')||{}).textContent : '');
+    ok('B11b it says how long it has been, not just a count',
+       !!nag && /since your last backup|not saved a backup yet/i.test(nag.textContent || ''),
+       nag ? (nag.textContent || '').trim().slice(0, 70) : '');
+    ok('B11c one journal entry weighs as much as eight notes',
+       ENTRY_WEIGHT === 8 && NAG_AT === 8, 'entry=' + ENTRY_WEIGHT + ' threshold=' + NAG_AT);
 
     window.saveBlob = realSave;
 
     // ── 8. the desktop path is the anchor, and it is not revoked immediately ──
-    ok('B11 this browser is not treated as iOS (share sheet is iOS-only)',
+    ok('B12 this browser is not treated as iOS (share sheet is iOS-only)',
        IS_IOS === false, 'IS_IOS=' + IS_IOS);
     var got = await saveBlob(new Blob(['x'], { type: 'text/plain' }), 'probe.txt');
-    ok('B12 saveBlob resolves true on the desktop anchor path', got === true, 'resolved ' + got);
+    ok('B13 saveBlob resolves true on the desktop anchor path', got === true, 'resolved ' + got);
 
     wipe();
     finish();

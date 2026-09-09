@@ -1596,19 +1596,42 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   .welcome-steps li{margin:0 0 .6rem;font-size:.92rem;line-height:1.5}
   .welcome-note{font-size:.82rem;color:#7a7a6a;background:#f3f3ea;border-radius:8px;padding:.7rem .9rem;margin:0 0 1.3rem}
   .welcome-warn{font-size:.82rem;color:#6b4423;background:#fdf3e3;border:1px solid #e6d2b0;border-radius:8px;padding:.7rem .9rem;margin:0 0 1.3rem}
-  /* The backup reminder. Bottom-left so it never covers the top bar's own save
-     button -- the reminder that hides the control it is asking you to use is worse
-     than none. bottom offset clears Safari's iPad toolbar. */
-  #backupNag{position:fixed;left:14px;bottom:64px;z-index:1900;max-width:23rem;display:none;
-    background:#3a5a40;color:#fff;font-family:'DM Sans',system-ui,sans-serif;
-    border-radius:10px;padding:.85rem 1rem;box-shadow:0 6px 22px rgba(0,0,0,.34)}
-  #backupNag.open{display:block}
-  #backupNag .nag-text{font-size:.86rem;line-height:1.45;margin-bottom:.7rem}
-  #backupNag .nag-acts{display:flex;gap:.5rem;flex-wrap:wrap}
-  #backupNag .nag-go{font-family:inherit;font-size:.85rem;font-weight:600;background:#fff;color:#3a5a40;
-    border:0;border-radius:7px;padding:.45rem .9rem;cursor:pointer}
-  #backupNag .nag-x{font-family:inherit;font-size:.85rem;background:transparent;color:#cfe0d2;
-    border:1px solid #6d8a72;border-radius:7px;padding:.45rem .8rem;cursor:pointer}
+  /* THE BACKUP BAR. Todd, 2026-09-09: "like an announcement in CANVAS ... it's
+     separate from the window. A second window. You have to close it to not look at
+     it." So: full width, docked to the bottom, its own band -- and the page GIVES UP
+     that strip rather than having the bar float over it. A reminder that covers the
+     thing it is talking about is worse than none. */
+  #backupNag{position:fixed;left:0;right:0;bottom:0;z-index:1900;display:none;
+    align-items:center;gap:.9rem;
+    font-family:'DM Sans',system-ui,sans-serif;font-size:.86rem;line-height:1.35;
+    color:#fff;background:#3a5a40;border-top:1px solid #2c452f;
+    padding:.42rem .9rem;box-shadow:0 -6px 22px rgba(0,0,0,.18)}
+  #backupNag.open{display:flex}
+  #backupNag .nag-text{flex:1 1 auto;min-width:0}
+  #backupNag b{font-weight:700}
+  #backupNag .nag-acts{flex:0 0 auto;display:flex;align-items:center;gap:.5rem}
+  #backupNag .nag-go{font-family:inherit;font-size:.84rem;font-weight:700;color:#2c3a2e;background:#fff;
+    border:0;border-radius:6px;padding:.34rem .8rem;cursor:pointer;white-space:nowrap}
+  #backupNag .nag-go:hover{background:#eef3ec}
+  #backupNag .nag-x{font-family:inherit;font-size:.95rem;line-height:1;color:#fff;opacity:.75;
+    background:none;border:0;border-radius:6px;padding:.34rem .6rem;cursor:pointer}
+  #backupNag .nag-x:hover{opacity:1;background:rgba(255,255,255,.14)}
+  @media (pointer:coarse){
+    #backupNag .nag-go,#backupNag .nag-x{position:relative}
+    #backupNag .nag-go::after,#backupNag .nag-x::after{content:'';position:absolute;
+      left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  }
+  /* Narrow: the buttons drop under the sentence rather than squeezing it to one
+     word per line. */
+  @media (max-width:620px){ #backupNag{flex-wrap:wrap} #backupNag .nag-acts{width:100%;justify-content:flex-end} }
+  /* Reserving the band. The columns scroll internally on a desktop, so they take the
+     padding; below 860px the document itself scrolls, so body does. */
+  body.nag-open .text-column,body.nag-open .comment-column{padding-bottom:calc(var(--nag-h,58px) + 1rem)}
+  @media (max-width:860px){ body.nag-open{padding-bottom:var(--nag-h,58px)} }
+  /* The build badge is fixed at bottom-right with z-index 3000, so it lands ON the
+     bar's own Save button. !important because that bottom is an inline style. */
+  body.nag-open #buildTag{
+    bottom:calc(var(--nag-h,58px) + 6px + env(safe-area-inset-bottom,0px)) !important }
   .imp-tbl{width:100%;border-collapse:collapse;font-size:.85rem;margin:.8rem 0 1rem}
   .imp-tbl th,.imp-tbl td{padding:.4rem .55rem;border-bottom:1px solid var(--comment-border,#e0dccf);text-align:right}
   .imp-tbl th:first-child,.imp-tbl td:first-child{text-align:left}
@@ -4677,7 +4700,11 @@ async function switchToReading(encId) {
 // cloud, or email — save it as you go, and open it next time.
 // ═══════════════════════════════════
 let workDirty = false;
-function markDirty() { if (!workDirty) { workDirty = true; updateSaveBtn(); } scheduleBackupNag(); }
+// ⚠ markDirty does NOT raise the bar any more. It fires on every save of a journal
+// entry -- which is every 600ms while someone types -- and a reminder that can appear
+// mid-sentence is the one thing this must never do. The bar is raised at boundaries;
+// see armBackupNag.
+function markDirty() { if (!workDirty) { workDirty = true; updateSaveBtn(); } }
 function updateSaveBtn() {
   const b = document.getElementById('saveJournalBtn');
   if (!b) return;
@@ -5391,8 +5418,16 @@ const VISIT_KEY  = 'cr_last_visit';
 // 284 nags at 8 marked passages OR one notebook entry -- the entry is the graded
 // artifact and outweighs a highlight. 318P's equivalents are margin notes and
 // journal entries, and that ratio wants a decision rather than a copy.
-const NAG_NOTES   = 8;
-const NAG_ENTRIES = 1;
+// 284's weighting, ported whole because it is proven in front of students.
+// ONE JOURNAL ENTRY IS ENOUGH ON ITS OWN: the entry is this course's graded
+// artifact and represents a sitting's writing; a margin note is a line someone
+// liked. Weighted 8 against a threshold of 8, so one unsaved entry speaks up
+// while seven unsaved notes still wait for the eighth.
+// ⚠ Do not raise this to make the bar rarer -- make it rarer by making backing
+// up easier. And do not lower it: a bar that is always there is furniture.
+const ENTRY_WEIGHT = 8;
+const NAG_AT       = 8;
+const NAG_SNOOZE   = 'cr318_nag_snoozed';   // this browser session only
 
 function workCounts() {
   let notes = 0, entries = 0;
@@ -5424,49 +5459,115 @@ function recordBackup() {
 // How much work exists that no backup has ever seen.
 function workSinceBackup() {
   const now = workCounts(), last = lastBackup();
-  if (!last || !last.counts) return now;
+  if (!last || !last.counts) return { notes: now.notes, entries: now.entries,
+                                      days: null, hours: null, never: true };
+  const ms = Date.now() - (last.ts || 0);
   return { notes:   Math.max(0, now.notes   - (last.counts.notes   || 0)),
-           entries: Math.max(0, now.entries - (last.counts.entries || 0)) };
+           entries: Math.max(0, now.entries - (last.counts.entries || 0)),
+           days: Math.floor(ms / 86400000), hours: Math.floor(ms / 3600000), never: false };
 }
 
-let _nagTimer = null, _nagDismissed = false;
-function scheduleBackupNag() {
-  if (_nagTimer) clearTimeout(_nagTimer);
-  _nagTimer = setTimeout(checkBackupNag, 4000);   // settle first; nobody wants this mid-sentence
+// "It has been X hours/days since your last backup" -- Todd asked for elapsed time
+// rather than a bare count, because a number of notes means nothing without knowing
+// how long they have been the only copy.
+function sinceSentence(r) {
+  if (r.never)     return 'You have not saved a backup yet.';
+  if (r.days  >= 1) return 'It has been ' + r.days  + ' day'  + (r.days  === 1 ? '' : 's') + ' since your last backup.';
+  if (r.hours >= 1) return 'It has been ' + r.hours + ' hour' + (r.hours === 1 ? '' : 's') + ' since your last backup.';
+  return 'Since your last backup,';
 }
+
+let _nagShown = false;
+
+// ⚠ NEVER WHILE THEY ARE WRITING. Todd, 2026-09-09: "interrupting writing to ask
+// them to save is not a good approach." 284 gets this right almost by accident --
+// its only call site is the tab switcher, so the bar can physically only appear at
+// a moment the reader has already stopped. This is that rule made explicit: an open
+// modal or a focused text field means composing, and composing is never interrupted.
+function isWriting() {
+  try {
+    if (document.querySelector('.nb-modal-overlay.open')) return true;
+    const a = document.activeElement;
+    if (!a) return false;
+    const tag = (a.tagName || '').toLowerCase();
+    return tag === 'textarea' || tag === 'input' || a.isContentEditable === true;
+  } catch (e) { return false; }
+}
+
 function checkBackupNag() {
-  if (_nagDismissed) return;
-  const d = workSinceBackup();
-  if (d.entries >= NAG_ENTRIES || d.notes >= NAG_NOTES) showBackupNag(d);
+  if (_nagShown) return;
+  try { if (sessionStorage.getItem(NAG_SNOOZE)) return; } catch (e) {}
+  if (isWriting()) return;                    // deferred, not cancelled -- see the hooks below
+  const r = workSinceBackup();
+  const worth = r.notes + r.entries * ENTRY_WEIGHT;
+  // The seven-day override: past a week, ANY unsaved work is worth saying something
+  // about, because Safari's sweep is the thing we cannot warn about while it happens.
+  if (worth < NAG_AT && !(r.days !== null && r.days >= 7 && worth > 0)) return;
+  showBackupNag(r);
 }
 
-function showBackupNag(d) {
+// The boundaries. A modal closing is the 318P equivalent of 284's tab switch: the
+// reader has finished a thing and is looking up. The interval is the catch-all for
+// a reader who only ever marks passages and opens no modal at all -- it is a no-op
+// whenever isWriting() is true, so it cannot interrupt either.
+(function armBackupNag(){
+  function later(){ setTimeout(checkBackupNag, 400); }
+  try {
+    const mo = new MutationObserver(function (recs) {
+      for (const r of recs) {
+        if (r.target.classList && r.target.classList.contains('nb-modal-overlay')
+            && !r.target.classList.contains('open')) { later(); return; }
+      }
+    });
+    document.querySelectorAll('.nb-modal-overlay').forEach(function (el) {
+      mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+  } catch (e) {}
+  setInterval(checkBackupNag, 20000);
+})();
+
+function showBackupNag(r) {
   let el = document.getElementById('backupNag');
   if (!el) {
     el = document.createElement('div');
     el.id = 'backupNag';
+    el.setAttribute('role', 'status');
     document.body.appendChild(el);
   }
   const bits = [];
-  if (d.entries) bits.push(d.entries + (d.entries === 1 ? ' journal entry' : ' journal entries'));
-  if (d.notes)   bits.push(d.notes   + (d.notes   === 1 ? ' margin note'   : ' margin notes'));
+  if (r.entries) bits.push('<b>' + r.entries + '</b> journal entr' + (r.entries === 1 ? 'y' : 'ies'));
+  if (r.notes)   bits.push('<b>' + r.notes   + '</b> margin note'  + (r.notes   === 1 ? ''  : 's'));
   const what = bits.join(' and ');
-  // ⚠ The button lives IN the reminder. Pointing at a menu path is exactly what let a
+  const verb = (r.notes + r.entries === 1) ? 'exists' : 'exist';
+  // ⚠ The button lives IN the bar. Pointing at a menu path is exactly what let a
   // 284 student go two weeks without ever finding the export.
   el.innerHTML =
-      '<div class="nag-text"><strong>' + escHtml(what) + '</strong> here have never been saved to a file.'
-    + ' If this browser clears its storage, they are gone.</div>'
+      '<div class="nag-text">' + sinceSentence(r) + ' ' + what + ' ' + verb
+    + ' only in this browser.</div>'
     + '<div class="nag-acts">'
-    + '<button class="nag-go" onclick="exportAll()">\u2913 Save my work now</button>'
-    + '<button class="nag-x" onclick="dismissBackupNag()">Not now</button>'
+    + '<button class="nag-go" onclick="exportAll()">\u2913 Save my work</button>'
+    + '<button class="nag-x" onclick="dismissBackupNag()" aria-label="Close">\u2715</button>'
     + '</div>';
   el.classList.add('open');
+  document.body.classList.add('nag-open');
+  _nagShown = true;
+  // Reserve the band rather than floating over the reader: this is a strip the page
+  // gives up, the way a Canvas announcement is, not a thing sitting on top of it.
+  try {
+    document.documentElement.style.setProperty('--nag-h', el.offsetHeight + 'px');
+  } catch (e) {}
+  try { appLog.info('backup', 'reminder shown', JSON.stringify({ notes: r.notes, entries: r.entries, days: r.days })); } catch (e) {}
 }
 function hideBackupNag() {
   const el = document.getElementById('backupNag');
   if (el) el.classList.remove('open');
+  document.body.classList.remove('nag-open');
 }
-function dismissBackupNag() { _nagDismissed = true; hideBackupNag(); }
+function dismissBackupNag() {
+  try { sessionStorage.setItem(NAG_SNOOZE, '1'); } catch (e) {}
+  try { appLog.info('backup', 'reminder dismissed'); } catch (e) {}
+  hideBackupNag();
+}
 
 // The ONE launch-time exception, and it earns the slot because there is no other
 // moment to catch it: a Safari reader coming back after days away, with work that
@@ -5475,6 +5576,24 @@ function dismissBackupNag() { _nagDismissed = true; hideBackupNag(); }
 // ⚠ The ORDER in this message is load-bearing. iOS gives a home-screen app its OWN
 // storage; work written in Safari does NOT follow it there. A student who installs
 // first opens an empty app and reasonably concludes everything is gone.
+// ⚠ NOT ON EVERY LAUNCH. Asked and settled twice now -- 284 carries the same note,
+// and Todd re-affirmed it on 2026-09-09 after briefly considering the opposite:
+// "let's follow the 284 philosophy and not hit them over their heads." A reminder
+// that fires every time is wallpaper inside a week, and is then dismissed reflexively
+// on the one day it mattered. It would also greet a reader who has JUST ARRIVED and
+// made nothing, which teaches them the app cries wolf.
+//
+// ⚠ AND THE REASON THAT OUTRANKS BOTH, Todd 2026-09-09: "advertising the backups are
+// necessary every day will make my students more suspicious of the software (thinking
+// that it must be pretty shitty to recommend that each time!)". Asking daily does not
+// read as care -- it reads as an app that expects to lose your work. A student who
+// does not trust the tool will not do their reading in it. The restraint is not only
+// about keeping the reminder effective; it is what makes the app look like it knows
+// what it is doing.
+//
+// The trigger is WORK AT RISK, checked at boundaries. The ONE launch-time exception
+// is below, and it earns its slot because Safari's seven-day sweep cannot be warned
+// about while it happens -- the way back in is the only moment we get to run at all.
 function backupLaunchCheck() {
   let prev = 0;
   try { prev = +(localStorage.getItem(VISIT_KEY) || 0); } catch (e) {}
