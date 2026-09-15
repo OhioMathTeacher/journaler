@@ -61,3 +61,80 @@ if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.as
   Object.defineProperty(ReadableStream.prototype, 'values',
     { value: values, writable: true, configurable: true });
 }
+
+// Seven more, found 2026-09-11 on an Android emulator's Chrome 113 while chasing a
+// 284 student's tablet, and ported here the same day (the rule above: a compat fix
+// in one app goes to the other). pdf.js 6.0.227 calls each of these bare:
+//
+//   Promise.withResolvers          Chrome 119 / Safari 17.4   everything -- "is not a function"
+//   Promise.try                    Chrome 128 / Safari 18.2   EVERY worker message: the handshake
+//                                                            fails and pdf.js silently falls back
+//                                                            to a main-thread worker
+//   URL.parse                      Chrome 126 / Safari 18     every link in a PDF
+//   Uint8Array toBase64/fromBase64 Chrome 140 / Safari 18.2   every embedded font
+//   Uint8Array.prototype.toHex     same                       the document fingerprint
+//   Set.prototype.intersection     Chrome 122 / Safari 17     named destinations
+//   Math.sumPrecise                Chrome 141 / no Safari     every TrueType glyph table
+//   ArrayBuffer.prototype.transferToFixedLength  Chrome 114 / Safari 17.4  fonts packed for the page
+//
+// The last two do not throw where anyone can see: the worker stops at the first font,
+// the operator list ends at beginText, and the page draws its rules and no words. To
+// make the next one visible, import pdf.worker.compat.mjs on the MAIN thread before
+// getDocument -- pdf.js then runs the worker in-page and the TypeErrors land in the
+// console. Each polyfill below is shaped for the calls pdf.js makes, not the whole
+// proposal, and stands aside where the engine has the real thing.
+define(Promise, 'withResolvers', function withResolvers() {
+  let resolve, reject;
+  const promise = new this((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+});
+define(Promise, 'try', function tryFn(fn, ...args) {
+  return new this(resolve => resolve(fn(...args)));       // a sync throw becomes a rejection
+});
+define(URL, 'parse', function parse(url, base) {
+  try { return base === undefined ? new URL(url) : new URL(url, base); } catch { return null; }
+});
+define(Set.prototype, 'intersection', function intersection(other) {
+  const out = new Set();
+  for (const v of this) if (other.has(v)) out.add(v);
+  return out;
+});
+define(Uint8Array.prototype, 'toBase64', function toBase64(opts) {
+  let s = '';
+  for (let i = 0; i < this.length; i += 0x8000)            // chunked: apply() has an argument limit
+    s += String.fromCharCode.apply(null, this.subarray(i, i + 0x8000));
+  let b64 = btoa(s);
+  if (opts && opts.alphabet === 'base64url') b64 = b64.replace(/\+/g, '-').replace(/\//g, '_');
+  if (opts && opts.omitPadding) b64 = b64.replace(/=+$/, '');
+  return b64;
+});
+define(Uint8Array, 'fromBase64', function fromBase64(str, opts) {
+  let s = String(str).replace(/\s+/g, '');
+  if (opts && opts.alphabet === 'base64url') s = s.replace(/-/g, '+').replace(/_/g, '/');
+  if (s.length % 4) s += '='.repeat(4 - (s.length % 4));
+  const bin = atob(s), out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+});
+define(Uint8Array.prototype, 'toHex', function toHex() {
+  let s = '';
+  for (let i = 0; i < this.length; i++) s += (this[i] < 16 ? '0' : '') + this[i].toString(16);
+  return s;
+});
+define(Math, 'sumPrecise', function sumPrecise(iterable) {
+  // Neumaier's compensated sum: exact enough for the sizes and offsets pdf.js adds.
+  let sum = 0, c = 0;
+  for (const x of iterable) {
+    const t = sum + x;
+    c += Math.abs(sum) >= Math.abs(x) ? (sum - t) + x : (x - t) + sum;
+    sum = t;
+  }
+  return sum + c;
+});
+define(ArrayBuffer.prototype, 'transferToFixedLength', function transferToFixedLength(newLength) {
+  // A copy, not a transfer: the engine cannot detach the source. pdf.js only reads the result.
+  const n = newLength === undefined ? this.byteLength : newLength;
+  const out = new ArrayBuffer(n);
+  new Uint8Array(out).set(new Uint8Array(this, 0, Math.min(n, this.byteLength)));
+  return out;
+});

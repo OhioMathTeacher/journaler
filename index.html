@@ -1993,7 +1993,9 @@ button.cal-cell.selected .cal-dot { background: #fff; }
   // A worker is its own realm, so polyfilling the page does nothing for it -- and 9
   // of the 20 calls live in the worker bundle. This wrapper applies the polyfill
   // there, then loads the real worker.
-  pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.compat.mjs';
+  // Absolute, not './vendor/…': when the real worker fails to start, pdf.js imports this
+  // on the main thread relative to pdf.min.mjs, and a relative path became vendor/vendor/.
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.compat.mjs', location.href).href;
   window.pdfjsLib = pdfjsLib;
   // pdf.js 6 moved JBIG2 / JPEG2000 (OpenJPEG) / ICC decoding into WebAssembly,
   // loaded from wasmUrl. Without it, JBIG2-compressed scans (most JSTOR PDFs)
