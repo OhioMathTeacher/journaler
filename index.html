@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-17 · build 56">
+<meta name="app-version" content="2026-09-17 · build 57">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -2401,18 +2401,45 @@ function noteCountFor(id) {
 function shelfTitles() {
   try { return JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch (e) { return {}; }
 }
+// Near enough to be the same title. JSTOR's embedded metadata is typed by hand and
+// drifts from the printed title by a word ("An Invitation FOR Discourse" against
+// "…TO Discourse" -- Todd hit that prompt twice on 2026-09-17). Four words in five
+// must agree, and a word carrying a number must not be the one that differs: "Part 1"
+// and "Part 2" are two articles, however alike the rest of the title is.
+function titlesAlike(a, b) {
+  const A = normTitle(a).split(' ').filter(Boolean), B = normTitle(b).split(' ').filter(Boolean);
+  if (!A.length || !B.length) return false;
+  if (A.join(' ') === B.join(' ')) return true;
+  if (A.length < 3 || B.length < 3) return false;          // short titles: exact or nothing
+  const pool = B.slice(); let common = 0; const off = [];
+  A.forEach(function (w) { const i = pool.indexOf(w); if (i >= 0) { pool.splice(i, 1); common++; } else off.push(w); });
+  if (off.concat(pool).some(function (w) { return /\d/.test(w); })) return false;
+  return (2 * common) / (A.length + B.length) >= 0.8;
+}
+// Does the text name the title? A run of the title's length whose words agree with
+// the title four times in five, so a cover sheet that says "for" where the shelf
+// says "to" still counts.
+function textNamesTitle(text, title) {
+  const T = normTitle(title).split(' ').filter(Boolean), W = normTitle(text).split(' ').filter(Boolean);
+  if (!T.length || W.length < T.length) return false;
+  const need = Math.ceil(T.length * 0.8);
+  for (let i = 0; i + T.length <= W.length; i++) {
+    let hit = 0;
+    for (let j = 0; j < T.length; j++) if (W[i + j] === T[j]) hit++;
+    if (hit >= need) return true;
+  }
+  return false;
+}
 // Does this document call itself <title>? Metadata title, the filename it came with,
 // or the text of its first two pages (a JSTOR cover sheet names the article there).
 async function pdfLooksLike(doc, meta, fileName, title) {
-  const want = normTitle(title);
-  if (!want) return false;
-  if (normTitle(meta.title) === want) return true;
-  if (normTitle(prettyTitleFromFilename(fileName)) === want) return true;
+  if (!normTitle(title)) return false;
+  if (titlesAlike(meta.title, title)) return true;
+  if (titlesAlike(prettyTitleFromFilename(fileName), title)) return true;
   try {
     for (let p = 1; p <= Math.min(2, doc.numPages); p++) {
       const tc = await (await doc.getPage(p)).getTextContent();
-      const text = normTitle(tc.items.map(function (it) { return it.str || ''; }).join(' '));
-      if (text.indexOf(want) !== -1) return true;
+      if (textNamesTitle(tc.items.map(function (it) { return it.str || ''; }).join(' '), title)) return true;
     }
   } catch (e) {}
   return false;
