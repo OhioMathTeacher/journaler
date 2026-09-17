@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-15 · build 55">
+<meta name="app-version" content="2026-09-17 · build 56">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -2359,10 +2359,92 @@ async function loadFilePayload(file) {
 }
 
 // "Open article" — Journaler always loads a PDF, so this goes straight to a file picker.
+// ⚠ A READING'S IDENTITY IS ITS TITLE AND AUTHOR, AND THOSE COME FROM THE FILE. The
+// same article downloaded twice from JSTOR can carry embedded metadata one time and
+// not the next; the id then differs by an author string and the notes sit under the
+// old id while the article opens under a new one with none. Found 2026-09-17: a
+// student's 34 restored notes were all "gone" -- every one was in storage, keyed to
+// readings that no PDF on her machine could reach any more. A backup never carries
+// the PDF bytes, so EVERY restore onto a fresh browser walks straight into this.
+//
+// Two defences, both decided in openPdfAsReader once the file is parsed:
+//   1. "Re-open the PDF…" on a shelf reading PINS the file to that reading's id.
+//      The file is checked against the reading (title in its metadata, filename,
+//      or the text of its first pages); if none of those match, the reader is asked
+//      rather than a wrong article being welded to the right notes for good.
+//   2. Any other open whose file resolves to a different id than a shelf reading
+//      with the SAME TITLE adopts the shelf reading -- unless the file's own id
+//      already has notes, which are never abandoned. A re-download then finds its
+//      notes without the reader knowing any of this happened.
+let _reopenForId = null;
 function openLoadModal() {
+  _reopenForId = null;
   const inp = document.getElementById('pdfInput');
   if (inp) { inp.value = ''; inp.click(); }
 }
+function reopenPdfForCurrent() {
+  const id = currentReadingId();
+  openLoadModal();
+  _reopenForId = (id && id.indexOf('custom:') === 0) ? id : null;
+}
+function splitReadingId(id) {
+  const body = String(id || '').slice('custom:'.length);
+  const bar = body.lastIndexOf('|');
+  return { title: bar >= 0 ? body.slice(0, bar) : body, author: bar >= 0 ? body.slice(bar + 1) : '' };
+}
+function normTitle(t) {
+  return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+function noteCountFor(id) {
+  try { return (JSON.parse(localStorage.getItem('cr_margin_notes_' + id)) || []).length; } catch (e) { return 0; }
+}
+function shelfTitles() {
+  try { return JSON.parse(localStorage.getItem('cr_reading_titles')) || {}; } catch (e) { return {}; }
+}
+// Does this document call itself <title>? Metadata title, the filename it came with,
+// or the text of its first two pages (a JSTOR cover sheet names the article there).
+async function pdfLooksLike(doc, meta, fileName, title) {
+  const want = normTitle(title);
+  if (!want) return false;
+  if (normTitle(meta.title) === want) return true;
+  if (normTitle(prettyTitleFromFilename(fileName)) === want) return true;
+  try {
+    for (let p = 1; p <= Math.min(2, doc.numPages); p++) {
+      const tc = await (await doc.getPage(p)).getTextContent();
+      const text = normTitle(tc.items.map(function (it) { return it.str || ''; }).join(' '));
+      if (text.indexOf(want) !== -1) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+// The id the opened file should live under, or null when its own id stands.
+// `own` is the id the file gives itself; `meta` is what it says about itself.
+async function shelfIdFor(pinned, own, meta, fileName, doc) {
+  const titles = shelfTitles();
+  if (pinned && pinned !== own) {
+    const p = splitReadingId(pinned);
+    if (await pdfLooksLike(doc, meta, fileName, p.title)) return pinned;
+    const ok = confirm('This file calls itself “' + (meta.title || prettyTitleFromFilename(fileName))
+      + '”, but you are re-opening “' + p.title + '”.\n\n'
+      + 'OK — open it as “' + p.title + '”, with the notes you already have there.\n'
+      + 'Cancel — open it as its own, separate article.');
+    try { appLog.warn('article', 're-open title mismatch', { shelf: pinned, file: own, keptShelf: ok }); } catch (e) {}
+    return ok ? pinned : null;
+  }
+  if (noteCountFor(own) > 0) return null;              // never walk away from notes
+  const want = normTitle(meta.title || prettyTitleFromFilename(fileName));
+  if (!want) return null;
+  const twins = Object.keys(titles).filter(function (id) {
+    return id !== own && id.indexOf('custom:') === 0 && normTitle(splitReadingId(id).title) === want;
+  });
+  if (!twins.length) return null;
+  // The twin with the reader's work on it; failing that, the one already on the
+  // shelf, so a re-download does not put the same article there twice.
+  twins.sort(function (a, b) { return noteCountFor(b) - noteCountFor(a); });
+  if (noteCountFor(twins[0]) > 0) return twins[0];
+  return titles[own] ? null : twins[0];
+}
+
 function openPdfFromInput(event) {
   const file = event.target.files && event.target.files[0];
   event.target.value = '';
@@ -2524,7 +2606,10 @@ async function restoreLastArticle() {
   // quietly if it never turns up at all rather than opening a half-dead reader.
   for (let i = 0; i < 100 && !window.pdfjsLib; i++) await new Promise(r => setTimeout(r, 50));
   if (!window.pdfjsLib) { console.warn('restoreLastArticle: pdf.js never loaded'); return; }
-  if (!(await hasPdfBytes(id))) { forgetLastArticle(); return; }
+  // ⚠ NO BYTES IS NOT "NOTHING TO SHOW". After a restore onto a fresh browser the
+  // notes are here and the PDF is not; bailing out left the page on "Reopening …"
+  // for ever (nothing re-rendered), which reads as a restore that did not take.
+  // switchToReading already knows how to open a reading without its file.
   try { await switchToReading(encodeURIComponent(id)); }
   catch (e) { console.warn('restoreLastArticle', e); }
 }
@@ -2600,6 +2685,11 @@ function migratePdfStoreOnce() {
 // figures, tables, and layout stay intact — the article looks like the article.
 // Reusable across courses (a writing course can load PDFs the same way).
 async function openPdfAsReader(file) {
+  // Taken NOW, before customText is replaced by what the file says about itself: a
+  // pin only counts if the reader is still standing on the reading they pinned. A
+  // stale pin from a cancelled file dialog must not follow them to the next article.
+  const pinned = (_reopenForId && _reopenForId === currentReadingId()) ? _reopenForId : null;
+  _reopenForId = null;
   setLoadFileHint('Opening ' + file.name + '…');
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -2616,6 +2706,16 @@ async function openPdfAsReader(file) {
       author: (info.Author && info.Author.trim()) || '',
       source: '', fileName: file.name, fileType: 'pdf', isPdf: true
     };
+    // Decided BEFORE anything is written under an id: the bytes, the filename and
+    // the last-article memory below all key on currentReadingId().
+    const own = currentReadingId();
+    const keep = await shelfIdFor(pinned, own, { title: customText.title }, file.name, pdfDoc);
+    if (keep && keep !== own) {
+      const k = splitReadingId(keep);
+      customText.title = k.title; customText.author = k.author;
+      appLog.info('article', 'attached \u201c' + file.name + '\u201d to the reading already on the shelf',
+                  { shelf: keep, file: own, notes: noteCountFor(keep) });
+    }
     pendingImport = null;
     rememberLastArticle(currentReadingId());
     rememberReadingFile(currentReadingId(), file.name);
@@ -4391,7 +4491,7 @@ function renderText() {
     if (customText.isPdf) {
       if (pdfDoc) { renderPdf(); }
       else {
-        textCol.innerHTML = '<div class="cr-blank"><p>Your highlights and journal for <strong>' + escHtml(customText.title || 'this article') + '</strong> are loaded.</p><button class="cr-blank-btn" onclick="openLoadModal()">Re-open the PDF…</button><p class="cr-blank-hint">This browser doesn\'t have this PDF saved yet. Re-open the file once and it\'ll be remembered here — you won\'t need to find it again.</p></div>';
+        textCol.innerHTML = '<div class="cr-blank"><p>Your highlights and journal for <strong>' + escHtml(customText.title || 'this article') + '</strong> are loaded.</p><button class="cr-blank-btn" onclick="reopenPdfForCurrent()">Re-open the PDF…</button><p class="cr-blank-hint">This browser doesn\'t have this PDF saved yet. Re-open the file once and it\'ll be remembered here — you won\'t need to find it again.</p></div>';
       }
       return;
     }
@@ -4887,7 +4987,7 @@ function applyImport(data, mode) {
   return tally;
 }
 
-let _pendingImport = null;
+let _pendingImport = null, _pendingImportName = '';
 // ⚠ The app warns on beforeunload whenever there is unsaved work. A reload WE start,
 // to show freshly imported data, would trip that warning -- on iOS behind the modal,
 // where it reads as a dialog that has hung rather than as a question. Nothing is at
@@ -4928,6 +5028,7 @@ function showImportChoice(data) {
   el.classList.add('open');
 }
 function cancelImport() {
+  try { if (_pendingImport) appLog.info('backup', 'restore cancelled \u201c' + _pendingImportName + '\u201d'); } catch (e) {}
   _pendingImport = null;
   const el = document.getElementById('importChoiceOverlay'); if (el) el.classList.remove('open');
 }
@@ -4940,9 +5041,11 @@ function runImport(mode) {
     tally = applyImport(data, mode);
   } catch (e) {
     if (el) el.classList.remove('open');
+    try { appLog.error('backup', 'restore failed (' + mode + ')', String((e && e.message) || e)); } catch (e2) {}
     alert('Could not import: ' + ((e && e.message) || e));
     return;
   }
+  try { appLog.info('backup', 'restored \u201c' + _pendingImportName + '\u201d (' + mode + ')', tally); } catch (e2) {}
   showImportResult(mode, tally);
 }
 
@@ -4996,6 +5099,9 @@ function importAll(event) {
       const data = parsed && parsed.data ? parsed.data : parsed;
       const keys = Object.keys(data || {}).filter(k => k.indexOf('cr_') === 0);
       if (!keys.length) throw new Error('No Journaler data found in that file.');
+      _pendingImportName = file.name;
+      try { appLog.info('backup', 'restore offered \u201c' + file.name + '\u201d',
+                        { savedAt: parsed && parsed.savedAt, build: parsed && parsed.appVersion, summary: importSummary(data) }); } catch (e2) {}
       showImportChoice(data);
     } catch (e) {
       alert('Could not import: ' + e.message);
