@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-17 · build 57">
+<meta name="app-version" content="2026-09-26 · build 58">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -21,9 +21,10 @@
      ⚙ → Diagnostics can hand it back. It runs before pdf.js and before the app so
      it also catches a script that fails to load, and every path is wrapped in
      try/catch: it must never be able to break the app it is watching.
-     Known gap: a Worker is its own realm, so a warning raised INSIDE the pdf.js
-     worker is not seen here. What the app catches and re-warns on the main thread
-     is, and that is the class of bug this exists for. -->
+     A Worker is its own realm, so a warning raised INSIDE the pdf.js worker used
+     not to be seen here -- the known gap, and precisely where the compat bugs
+     announce themselves. vendor/pdf.worker.relay.mjs now mirrors that console back
+     to this log, so a report carries the sentence that names the cause. -->
 <script>
 (function () {
   var KEY = 'cr_applog';
@@ -133,6 +134,33 @@
   }
   console.warn  = function () { try { log('warn',  'console', fmt(arguments), stackOf(arguments)); } catch (e) {} return orig.warn.apply(console, arguments); };
   console.error = function () { try { log('error', 'console', fmt(arguments), stackOf(arguments)); } catch (e) {} return orig.error.apply(console, arguments); };
+
+  // ── the same console, from the realm this log could not reach ──
+  // The gap named at the top of this file: a Worker has its own global scope, so a
+  // warning raised inside the pdf.js worker landed nowhere. That is the realm where
+  // every compat bug so far has announced itself -- the worker stops at the first
+  // font, the page draws its figures and no words, and the student reports missing
+  // text. vendor/pdf.worker.relay.mjs mirrors that console and posts each line here.
+  // Wrapping the constructor rather than handing pdf.js a port of our own leaves it
+  // creating, owning and terminating its worker exactly as before; this only listens.
+  try {
+    var NativeWorker = window.Worker;
+    if (NativeWorker) {
+      var RelayWorker = function (url, opts) {
+        var w = new NativeWorker(url, opts);
+        try {
+          w.addEventListener('message', function (ev) {
+            var d = ev && ev.data, r = d && d.__appLog;
+            if (!r) return;                      // pdf.js's own traffic, not ours
+            log(r.level || 'warn', r.source || 'worker', r.message, r.data);
+          });
+        } catch (e) {}
+        return w;
+      };
+      RelayWorker.prototype = NativeWorker.prototype;   // keep instanceof Worker true
+      window.Worker = RelayWorker;
+    }
+  } catch (e) {}
 
   // Capture phase: a script or stylesheet that 404s fires error on the element
   // and never bubbles to window.
