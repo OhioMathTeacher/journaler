@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-09-26 · build 58">
+<meta name="app-version" content="2026-10-04 · build 59">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -7818,7 +7818,25 @@ function exportNotebook() {
 }
 
 // Whole-journal, human-readable export — the submission artifact (one PDF).
+// Autumn, 1 Oct 2026: "I am unable to get the Assemble Journal button, even though I
+// ensured pop-ups were allowed." Nothing below was guarded, so any throw before
+// window.open left the button dead and silent -- no new tab, no message, nothing to
+// report. She uploaded six screenshots instead and apologised for being difficult.
+// A thrown error now says so, and names the way out that does not need this function.
 function printJournal() {
+  try {
+    assembleJournal();
+  } catch (err) {
+    console.error('Assemble Journal failed:', err);
+    alert('Something went wrong while assembling your Journal.\n\n'
+        + (err && err.message ? err.message : String(err))
+        + '\n\nYour work is safe. Click the reading title at the top, then '
+        + '"Save my work to a file", and send your teacher the .json file it saves. '
+        + 'Please include the message above so it can be fixed.');
+  }
+}
+
+function assembleJournal() {
   const hasBody = e => (e.text && e.text.trim()) || (e.take && e.take.trim())
                     || (e.kind === 'chat' && e.messages && e.messages.length);
   const all = loadJournal().filter(hasBody);
