@@ -8,7 +8,7 @@
      "is what I am running still what is published?" — so the string the app shows
      and the string the update check reads can never drift apart. Bump it here and
      nowhere else. -->
-<meta name="app-version" content="2026-10-04 · build 60">
+<meta name="app-version" content="2026-10-11 · build 61">
 <!-- ══ EVENT LOG — deliberately the first script on the page ═════════════════
      Modelled on Allegory's crash log, and here for the same reason. Both bugs
      that cost a class period on 26–27 Aug 2026 sat in a console.warn: the reader
@@ -1617,7 +1617,7 @@ button.cal-cell.selected .cal-dot { background: #fff; }
 <style>
   .welcome-overlay{position:fixed;inset:0;background:rgba(20,20,16,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:1.2rem}
   .welcome-overlay.open{display:flex}
-  .welcome-card{background:#fdfdf8;color:#2a2a24;max-width:34rem;width:100%;max-height:90vh;max-height:90dvh;overflow:auto;border-radius:14px;padding:2rem 2.2rem;position:relative;font-family:'DM Sans',system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .welcome-card{background:#fdfdf8;color:#2a2a24;max-width:40rem;width:100%;max-height:92vh;max-height:92dvh;overflow:auto;border-radius:14px;padding:2rem 2.2rem;position:relative;font-family:'DM Sans',system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.3)}
   .welcome-card h2{font-family:'DM Sans',sans-serif;font-size:1.35rem;margin:0 0 .3rem}
   .welcome-lead{color:#6a6a5a;margin:0 0 1.2rem;font-size:.95rem}
   .welcome-steps{margin:0 0 1.2rem;padding-left:1.2rem}
@@ -1809,8 +1809,8 @@ button.cal-cell.selected .cal-dot { background: #fff; }
       <li><strong>Write your entry.</strong> Open <em>This Week's Entry</em> and answer that week's prompt from the Reading Homework sheet. Five entries make the Journal you submit after Week 5.</li>
       <li><strong>Turn it in.</strong> At the end of Act I, click <em>📖 Journal</em> at the top, then <em>📄 Assemble Journal</em> at the bottom of that window. Your journal opens in a new tab — its <em>Save as PDF / Print</em> button makes the single file you upload to Canvas.</li>
     </ol>
-    <p class="welcome-warn"><strong>⚠ Keep your work in a file.</strong> This browser can forget what you write. Safari clears a site&rsquo;s saved work after <strong>seven days without a visit</strong>, and a shared computer may clear it when you log out. Save with <strong>⤓</strong> as you go, and open your file here each time. Nothing is ever uploaded.<br>
-      <strong>On an iPad</strong>, <em>Share → Add to Home Screen</em> lifts the seven-day limit — but back up <strong>first</strong> and install <strong>second</strong>: the installed app keeps its own separate storage and starts empty.</p>
+    <p class="welcome-warn"><strong>⚠ Keep your work in a file.</strong> This browser can forget what you write. Safari clears a site&rsquo;s saved work after <strong>seven days without a visit</strong>, and a shared computer may clear it when you log out. Click the reading title at the top and choose <strong>⤓ Save my work to a file</strong> as you go, then open your file here each time. Nothing is ever uploaded.<br>
+      <strong>On an iPad</strong>, <em>Share → Add to Home Screen</em> lifts the seven-day limit — but back up <strong>first</strong> and install <strong>second</strong>: the installed app keeps its own separate storage and starts empty. Once it is installed, your work lives behind that icon, and deleting the icon deletes it, so keep saving files after you install too.</p>
     <div class="welcome-actions">
       <button class="welcome-go" onclick="closeWelcome()">Start reading</button>
       <button class="welcome-secondary" onclick="closeWelcome();openJournalFile()">⤒ Restore my journal backup (.json)</button>
@@ -3914,8 +3914,8 @@ function saveNotesToStorage() {
   } catch (e) {
     console.error('saveNotesToStorage', e);
     alert('That note could not be saved — this browser\'s storage for the course is full.\n\n'
-        + 'Use ⤓ to save your work to a file before doing anything else, so nothing already '
-        + 'written is lost.');
+        + 'Click the reading title at the top and choose “⤓ Save my work to a file” before doing '
+        + 'anything else, so nothing already written is lost.');
     return;
   }
   markDirty();
@@ -5353,7 +5353,22 @@ function renderSettings() {
             your backup <em>inside</em> the installed app. iOS gives an installed app its own separate
             storage \u2014 work you wrote here in Safari does not follow it there, so installing first
             opens an empty app and looks like everything is gone.</p>
+         <p><strong>Installing is not a backup.</strong> Once Journaler is on your Home Screen, your
+            work lives behind that icon \u2014 delete the icon and the work goes with it, and iOS does
+            not ask twice. Keep saving backup files after you install.</p>
        </div></div>`
+    + `<div class="set-row"><div class="set-row-text">
+         <h3>Ask this browser to keep its copy</h3>
+         <p>${_storagePersisted === true
+              ? 'This browser has agreed to keep Journaler’s work even when the device runs '
+                + 'short of space. It still does not lift the seven-day rule, and it is still not '
+                + 'a backup.'
+              : 'Browsers clear old site data when a device runs low on space. You can ask this '
+                + 'one not to. Safari and Chrome answer by themselves; Firefox will ask you to '
+                + 'confirm. Either way it changes nothing about the seven-day rule, and it is not '
+                + 'a backup — the file is.'}</p>
+       </div>${_storagePersisted === true ? ''
+          : `<button class="set-btn quiet" onclick="requestPersistentStorage(this)">Ask…</button>`}</div>`
     + `<div class="set-row"><div class="set-row-text">
          <h3>Last backup</h3>
          <p>${(function () {
@@ -5773,12 +5788,15 @@ function backupLaunchCheck() {
       + 'Safari deletes a site\u2019s saved work after seven days without a visit, so your '
       + 'notes and entries here are at risk.\n\n'
       + 'Two things make that permanent:\n\n'
-      + '1. Save a backup file now (\u2913 in the top bar).\n'
+      + '1. Save a backup file now: tap the reading title at the top, then '
+      + '\u201c\u2913 Save my work to a file\u201d.\n'
       + '2. THEN use Share \u2192 Add to Home Screen. An installed app is exempt from the '
       + 'seven-day rule.\n\n'
       + '\u26a0 Do it in that order. The installed app gets its own separate storage, so work '
       + 'written here in Safari will NOT appear in it \u2014 you restore your backup inside the '
-      + 'installed app afterwards.');
+      + 'installed app afterwards.\n\n'
+      + 'After you install, your work lives behind that icon. Deleting the icon deletes it, '
+      + 'so keep saving backup files even once Journaler is on your Home Screen.');
 }
 if (document.readyState !== 'loading') setTimeout(backupLaunchCheck, 1200);
 else window.addEventListener('DOMContentLoaded', function () { setTimeout(backupLaunchCheck, 1200); });
@@ -5788,6 +5806,68 @@ else window.addEventListener('DOMContentLoaded', function () { setTimeout(backup
 // in front of that navigation is an await between the tap and the handler, which
 // is where Safari stops trusting it. The one genuinely async fact -- the browser's
 // storage estimate -- is fetched when the panel opens and read from here.
+// ── persistent storage ────────────────────────────────────────────────────
+// Two calls with two very different manners, and the difference is the whole
+// design here. persisted() is a silent READ in every browser, so it runs at
+// launch and the panel can state the truth without asking anyone anything.
+// persist() is a REQUEST: Firefox answers it with a permission doorhanger, and
+// will not grant it without a user gesture anyway -- so an unprompted call at
+// launch is a popup that interrupts a reader AND cannot succeed. Safari and
+// Chromium decide silently from their own heuristics; WebKit's documented one
+// is whether the app was added to the Home Screen.
+//
+// So the rule is "only ask inside a click", NOT "skip it in Firefox". A gesture
+// costs nothing where the answer is already silent, and it is the only context
+// that can succeed where it is not. No browser sniffing, and a browser that
+// adds a prompt later is handled before it ships.
+//
+// ⚠ What this does NOT do. Persistent mode exempts an origin from eviction when
+// the device is short of space. It is NOT what lifts Safari's seven-day sweep --
+// only adding the app to the Home Screen does that. And it is not a backup: the
+// file is still the only copy no browser policy can reach. Every string below
+// says so, because a student who reads "persistent" as "safe" has been made less
+// safe by a feature meant to help.
+let _storagePersisted = null;          // null = not yet known, or unsupported
+function refreshStoragePersisted() {
+  try {
+    if (!navigator.storage || !navigator.storage.persisted) return;
+    navigator.storage.persisted().then(function (p) { _storagePersisted = !!p; }, function () {});
+  } catch (e) {}
+}
+refreshStoragePersisted();
+
+// ⚠ ONLY from a click handler. See above -- calling this at launch is the bug
+// this function is shaped to avoid.
+function requestPersistentStorage(btn) {
+  if (!navigator.storage || !navigator.storage.persist) {
+    alert('This browser does not offer that setting.\n\nYour work is still saved here as usual. '
+        + 'Saving a backup file is what protects it.');
+    return;
+  }
+  const label = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Asking…'; }
+  function done() { if (btn) { btn.disabled = false; btn.textContent = label; } }
+  navigator.storage.persist().then(function (granted) {
+    _storagePersisted = !!granted;
+    try { appLog.info('storage', 'persist() → ' + (granted ? 'granted' : 'denied')); } catch (e) {}
+    done();
+    if (granted) {
+      alert('Done — this browser will now keep Journaler’s work even when the device is '
+          + 'short of space.\n\nThis is not a backup, and it does not change Safari’s '
+          + 'seven-day rule. Keep saving your file.');
+    } else {
+      alert('This browser said no — nothing you did wrong. Safari and Chrome decide this one '
+          + 'themselves, and adding Journaler to your Home Screen is what usually earns it.\n\n'
+          + 'Your work is still saved here as usual, and the backup file is what actually '
+          + 'protects it.');
+    }
+    if (document.getElementById('setBody')) renderSettings();
+  }, function (e) {
+    try { appLog.info('storage', 'persist() failed: ' + ((e && e.message) || e)); } catch (e2) {}
+    done();
+  });
+}
+
 let _storageEstimate = null;
 function refreshStorageEstimate() {
   try {
@@ -5838,7 +5918,8 @@ function buildReport() {
       window: window.innerWidth + '×' + window.innerHeight,
       devicePixelRatio: window.devicePixelRatio || 1
     },
-    storage: { localStorageKB: Math.round(bytes / 1024), keys: keys, estimate: _storageEstimate },
+    storage: { localStorageKB: Math.round(bytes / 1024), keys: keys, estimate: _storageEstimate,
+               persisted: _storagePersisted },
     work: {
       articles: readings.length, notes: notes, entries: journal.length,
       openArticle: customText ? (customText.title || 'untitled') : null,
@@ -5903,6 +5984,9 @@ function reportAsText(rep) {
   L.push('  Window      ' + rep.browser.window + ' · screen ' + rep.browser.screen
        + ' @' + rep.browser.devicePixelRatio + 'x');
   L.push('  Installed   ' + (rep.browser.homeScreenApp ? 'added to the home screen' : 'running in the browser'));
+  L.push('  Persistence ' + (rep.storage.persisted === true ? 'persistent'
+                            : rep.storage.persisted === false ? 'best-effort (evictable)'
+                            : 'unknown / not reported by this browser'));
   L.push('  Online      ' + (rep.browser.online ? 'yes' : 'no'));
   L.push('');
   L.push('THE WORK IN THIS BROWSER  (counts only — no writing is included)');
@@ -6787,7 +6871,8 @@ function saveJournal(list) {
   } catch (e) {
     console.error('saveJournal', e);
     alert('That entry could not be saved \u2014 this browser\'s storage for the course is full.\n\n'
-        + 'Use \u2913 to save your work to a file right now, before writing anything else.');
+        + 'Tap the reading title at the top and choose \u201c\u2913 Save my work to a file\u201d right '
+        + 'now, before writing anything else.');
     return;
   }
   markDirty();
