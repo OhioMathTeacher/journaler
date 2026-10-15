@@ -6,5 +6,5 @@ src-tauri/target/
 _p_*.html
 _p_*.pdf
 
-# Python bytecode from the tools/ scripts.
-tools/__pycache__/
+# Python bytecode, wherever a script or local server leaves it.
+__pycache__/
